@@ -1,0 +1,161 @@
+{
+  "info": {
+    "name": "CyberSathi API",
+    "_postman_id": "cybersathi-api-v1-collection",
+    "description": "Collection for testing CyberSathi: AI-Powered Voice Cyber Fraud Complaint Assistant for Indian Citizens.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:8000/api/v1",
+      "type": "string"
+    },
+    {
+      "key": "complaintId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "ackNumber",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Emergency Helpline",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/emergency/helpline-info",
+          "host": ["{{baseUrl}}"],
+          "path": ["emergency", "helpline-info"]
+        },
+        "description": "Retrieves 1930 Helpline, CFCFRMS protocol, and bank-specific emergency fraud lines."
+      }
+    },
+    {
+      "name": "2. Start AI Voice Conversation",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "var jsonData = pm.response.json();",
+              "if (jsonData.complaint_id) {",
+              "    pm.collectionVariables.set('complaintId', jsonData.complaint_id);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/chat/start?language=English",
+          "host": ["{{baseUrl}}"],
+          "path": ["chat", "start"],
+          "query": [
+            {
+              "key": "language",
+              "value": "English"
+            }
+          ]
+        },
+        "description": "Initializes a voice/text reporting session."
+      }
+    },
+    {
+      "name": "3. Send Citizen Utterance (Text or Transcribed Voice)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"complaint_id\": \"{{complaintId}}\",\n  \"message\": \"Someone called me pretending to be a bank manager. I shared an OTP and Rs 15000 was deducted via UPI yesterday at 2 PM. UTR 987654321012.\",\n  \"language\": \"English\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/chat/message",
+          "host": ["{{baseUrl}}"],
+          "path": ["chat", "message"]
+        },
+        "description": "Sends spoken/typed text. AI extracts fields and prompts for missing information."
+      }
+    },
+    {
+      "name": "4. Generate Formal Legal Complaint Narrative",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/complaints/{{complaintId}}/generate-narrative",
+          "host": ["{{baseUrl}}"],
+          "path": ["complaints", "{{complaintId}}", "generate-narrative"]
+        },
+        "description": "Generates cybercrime.gov.in compliant narrative invoking IT Act 66D and IPC 420."
+      }
+    },
+    {
+      "name": "5. Guided Submission Checklist",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/complaints/{{complaintId}}/guided-submission",
+          "host": ["{{baseUrl}}"],
+          "path": ["complaints", "{{complaintId}}", "guided-submission"]
+        },
+        "description": "Returns step-by-step guidance and clipboard packet for official cybercrime.gov.in submission."
+      }
+    },
+    {
+      "name": "6. Authorized API Submission Simulation",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "var jsonData = pm.response.json();",
+              "if (jsonData.acknowledgement_number) {",
+              "    pm.collectionVariables.set('ackNumber', jsonData.acknowledgement_number);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/complaints/{{complaintId}}/submit-authorized-api",
+          "host": ["{{baseUrl}}"],
+          "path": ["complaints", "{{complaintId}}", "submit-authorized-api"]
+        },
+        "description": "Simulates authorized government API submission and returns 14-digit Acknowledgement Number."
+      }
+    },
+    {
+      "name": "7. Track Complaint Status",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/tracking/status/{{ackNumber}}",
+          "host": ["{{baseUrl}}"],
+          "path": ["tracking", "status", "{{ackNumber}}"]
+        },
+        "description": "Checks status timeline by Acknowledgement Number."
+      }
+    }
+  ]
+}

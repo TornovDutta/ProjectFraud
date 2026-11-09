@@ -1,4 +1,11 @@
-const API_BASE_URL = "http://localhost:8000/api/v1";
+import { Platform } from 'react-native';
+
+// On mobile devices (Expo Go on physical phone), use your PC's Wi-Fi LAN IP so your phone can reach FastAPI.
+// On desktop web browser, localhost is used.
+const LOCAL_PC_IP = "192.168.29.53";
+const API_BASE_URL = Platform.OS === 'web' 
+  ? "http://localhost:8000/api/v1" 
+  : `http://${LOCAL_PC_IP}:8000/api/v1`;
 
 export const api = {
   // 1. Emergency Helpline
@@ -7,7 +14,7 @@ export const api = {
       const res = await fetch(`${API_BASE_URL}/emergency/helpline-info`);
       if (res.ok) return await res.json();
     } catch (e) {
-      console.warn("Backend offline, using local emergency info fallback");
+      console.warn("Backend offline, using official emergency info fallback");
     }
     return {
       emergency_number: "1930",
@@ -38,10 +45,10 @@ export const api = {
     return {
       complaint_id: mockId,
       assistant_message: language === "Hindi"
-        ? "नमस्ते! मैं साइबर साथी हूँ। कृपया बताएं कि आपके साथ क्या हुआ।"
+        ? "नमस्ते! मैं साइबर साथी हूँ। कृपया बताएं कि आपके साथ क्या हुआ। आप हिंदी, बंगाली या अंग्रेजी में बोल सकते हैं।"
         : language === "Bengali"
-        ? "নমস্কার! আমি সাইবার সাথী। আপনার সাথে কী ঘটেছে দয়া করে বলুন।"
-        : "Hello! I am CyberSathi. Please explain what happened in your own words.",
+        ? "নমস্কার! আমি সাইবার সাথী। আপনার সাথে ঠিক কী ঘটেছে দয়া করে বলুন। আপনি বাংলা, হিন্দি বা ইংরেজিতে বলতে পারেন।"
+        : "Hello! I am CyberSathi, your Cyber Fraud Complaint Assistant. Please tell me what happened in your own words. You can speak in English, Hindi, or Bengali.",
       extracted_fields: {},
       missing_fields: ["fraud_amount", "payment_method", "incident_date"],
       is_completed: false,
@@ -58,32 +65,73 @@ export const api = {
       });
       if (res.ok) return await res.json();
     } catch (e) {
-      console.warn("Backend offline, applying client-side regex extraction fallback");
+      console.warn("Backend offline, applying client-side regex extraction");
     }
     
-    // Client-side local extraction fallback
-    const amtMatch = message.match(/(?:₹|rs\.?|টাকা|रुपये)?\s*([0-9]{3,7})/i);
-    const amount = amtMatch ? parseFloat(amtMatch[1]) : 15000;
-    const utrMatch = message.match(/\b([0-9]{12})\b/);
-    const utr = utrMatch ? utrMatch[1] : "987654321012";
+    // Client-side local extraction: only extract real numbers/patterns present in user message
+    const amtMatch = message.match(/(?:₹|rs\.?|টাকা|रुपये)?\s*([0-9]+(?:,[0-9]+)*(?:\.[0-9]{1,2})?)/i);
+    const amount = amtMatch ? parseFloat(amtMatch[1].replace(/,/g, '')) : null;
     
+    const utrMatch = message.match(/\b([0-9]{12})\b/);
+    const utr = utrMatch ? utrMatch[1] : null;
+
+    let paymentMethod = null;
+    const lower = message.toLowerCase();
+    if (lower.includes("upi") || lower.includes("gpay") || lower.includes("phonepe") || lower.includes("paytm")) {
+      paymentMethod = "UPI";
+    } else if (lower.includes("card") || lower.includes("कार्ड")) {
+      paymentMethod = "CARD";
+    } else if (lower.includes("net banking") || lower.includes("बैंकिंग")) {
+      paymentMethod = "NET_BANKING";
+    }
+
+    const extracted = {};
+    if (amount) extracted.fraud_amount = amount;
+    if (paymentMethod) extracted.payment_method = paymentMethod;
+    if (utr) extracted.transaction_id = utr;
+    extracted.incident_description = message;
+
+    const missing = [];
+    if (!extracted.fraud_amount) missing.push("fraud_amount");
+    if (!extracted.payment_method) missing.push("payment_method");
+    if (!extracted.transaction_id) missing.push("transaction_or_suspect");
+
+    const isComplete = missing.length === 0;
+
+    let reply = "";
+    if (isComplete) {
+      reply = language === "Hindi"
+        ? "धन्यवाद। मैंने सभी विवरण एकत्र कर लिए हैं। शिकायत समीक्षा के लिए तैयार है।"
+        : language === "Bengali"
+        ? "ধন্যবাদ। আমি প্রয়োজনীয় তথ্য সংগ্রহ করেছি। অভিযোগটি পর্যালোচনার জন্য প্রস্তুত।"
+        : "Thank you. I have collected your details. Your complaint draft is ready for review.";
+    } else if (missing.includes("fraud_amount")) {
+      reply = language === "Hindi"
+        ? "सटीक शिकायत के लिए, कृपया बताएं कि आपके खाते से कितने रुपये कटे?"
+        : language === "Bengali"
+        ? "সঠিক অভিযোগের জন্য দয়া করে বলুন কত টাকা ক্ষতি হয়েছে?"
+        : "To report this accurately, could you please state how much money was deducted or lost?";
+    } else if (missing.includes("payment_method")) {
+      reply = language === "Hindi"
+        ? "इस लेनदेन के लिए किस माध्यम का उपयोग किया गया था (जैसे UPI, डेबिट/क्रेडिट कार्ड, या नेट बैंकिंग)?"
+        : language === "Bengali"
+        ? "পেমেন্টের মাধ্যম কী ছিল (যেমন UPI, ডেবিট কার্ড, বা নেট ব্যাঙ্কিং)?"
+        : "Which payment method was used (e.g., UPI, Card, or Net Banking)?";
+    } else {
+      reply = language === "Hindi"
+        ? "क्या आपके पास बैंक SMS या ऐप से 12 अंकों का UPI UTR नंबर है?"
+        : language === "Bengali"
+        ? "আপনার কাছে কি ১২ সংখ্যার UPI UTR নম্বর আছে?"
+        : "Do you have the 12-digit UPI UTR number or bank reference number?";
+    }
+
     return {
       complaint_id: complaintId,
-      assistant_message: language === "Hindi"
-        ? "धन्यवाद। मैंने 15,000 रुपये और UPI विवरण एकत्र कर लिए हैं। शिकायत तैयार है।"
-        : language === "Bengali"
-        ? "ধন্যবাদ। আমি সমস্ত তথ্য পেয়েছি। অভিযোগ জমা করার জন্য প্রস্তুত।"
-        : "Thank you. I have extracted the details. Your formal complaint draft is ready for review.",
-      extracted_fields: {
-        fraud_amount: amount,
-        payment_method: "UPI",
-        transaction_id: utr,
-        incident_date: new Date().toISOString().split("T")[0],
-        incident_description: message
-      },
-      missing_fields: [],
-      is_completed: true,
-      quick_options: null
+      assistant_message: reply,
+      extracted_fields: extracted,
+      missing_fields: missing,
+      is_completed: isComplete,
+      quick_options: missing.includes("payment_method") ? ["UPI", "Debit/Credit Card", "Net Banking"] : null
     };
   },
 
@@ -97,12 +145,12 @@ export const api = {
     }
     return {
       id: complaintId,
-      fraud_amount: 15000,
-      payment_method: "UPI",
-      transaction_id: "987654321012",
-      suspect_phone: "9876543210",
+      fraud_amount: null,
+      payment_method: null,
+      transaction_id: null,
+      suspect_phone: null,
       incident_date: new Date().toISOString().split("T")[0],
-      submission_status: "READY",
+      submission_status: "DRAFT",
       tracking_status: "NOT_SUBMITTED"
     };
   },
@@ -118,7 +166,7 @@ export const api = {
     }
     return {
       complaint_id: complaintId,
-      narrative: `FORMAL CYBERCRIME COMPLAINT PETITION\nReference: National Cyber Crime Reporting Portal (cybercrime.gov.in)\nIncident Category: Financial Cyber Fraud (UPI Fraud)\nAmount: INR 15,000.00\nTransaction UTR: 987654321012\nStatutory Sections: Section 66D IT Act 2000 & IPC 420\nRelief Requested: Urgent notice to recipient bank via 1930 CFCFRMS to place lien on suspect account.`,
+      narrative: `FORMAL CYBERCRIME COMPLAINT PETITION\nReference: National Cyber Crime Reporting Portal (cybercrime.gov.in)\nIncident Category: Financial Cyber Fraud\nStatutory Sections: Section 66D IT Act 2000 & Section 318(4) BNS / Section 420 IPC\nRelief Requested: Urgent notice to recipient bank via 1930 CFCFRMS to mark lien on suspect account.`,
       submission_status: "READY"
     };
   },
@@ -134,7 +182,7 @@ export const api = {
       official_portal_url: "https://cybercrime.gov.in",
       helpline: "1930",
       checklist: [
-        { step: 1, title: "Visit Official Portal", instruction: "Open cybercrime.gov.in and click 'Financial Fraud'." },
+        { step: 1, title: "Visit Official Portal", instruction: "Open cybercrime.gov.in and click Financial Fraud." },
         { step: 2, title: "Citizen Login with Mobile OTP", instruction: "Verify your mobile number on portal." },
         { step: 3, title: "Enter Incident Details", instruction: "Paste the pre-filled fields provided by CyberSathi." },
         { step: 4, title: "Upload Payment Screenshot", instruction: "Attach the payment receipt." },
@@ -142,9 +190,9 @@ export const api = {
       ],
       prefilled_fields: {
         category: "Financial Fraud",
-        sub_category: "UPI_FRAUD",
-        loss_amount: "15000",
-        utr_or_txn_id: "987654321012"
+        sub_category: "FINANCIAL_CYBER_FRAUD",
+        loss_amount: "",
+        utr_or_txn_id: ""
       }
     };
   },
@@ -158,7 +206,7 @@ export const api = {
     } catch (e) {
       console.warn("Authorized submission offline fallback");
     }
-    const ack = `202611${Math.floor(10000000 + Math.random() * 90000000)}`;
+    const ack = `${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}${Math.floor(10000000 + Math.random() * 90000000)}`;
     return {
       success: true,
       acknowledgement_number: ack,
@@ -177,30 +225,10 @@ export const api = {
       console.warn("Tracking status offline fallback");
     }
     return {
-      found: true,
-      complaint_id: identifier,
-      government_acknowledgement: identifier.startsWith("2026") ? identifier : "20261184920193",
-      submission_status: "ACKNOWLEDGED",
-      tracking_status: "BANK_FREEZE_DISPATCHED",
-      fraud_amount: 15000,
-      fraud_type: "UPI_FRAUD",
+      found: false,
+      message: "No local record found for this identifier.",
       official_tracking_url: "https://www.cybercrime.gov.in/Webform/chkackstatus.aspx",
-      timeline: [
-        {
-          status: "SUBMITTED",
-          title: "Complaint Lodged on National Portal",
-          description: "Lodged under Citizen Financial Cyber Fraud Reporting System.",
-          source: "OFFICIAL_PORTAL",
-          timestamp: new Date().toISOString()
-        },
-        {
-          status: "BANK_FREEZE_DISPATCHED",
-          title: "1930 / I4C Bank Lien Notice Dispatched",
-          description: "Bank Nodal Officer notified to place immediate lien on beneficiary account.",
-          source: "BANK",
-          timestamp: new Date().toISOString()
-        }
-      ]
+      instruction: "Check status directly on official cybercrime portal."
     };
   },
 

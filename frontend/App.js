@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { StyleSheet, View, SafeAreaView, StatusBar, TouchableOpacity, Text, Platform } from 'react-native';
+import { StyleSheet, View, TouchableOpacity, Text, Platform, StatusBar } from 'react-native';
+import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import { MaterialIcons } from '@expo/vector-icons';
 
 import HomeScreen from './src/screens/HomeScreen';
@@ -10,12 +12,13 @@ import EvidenceUploadScreen from './src/screens/EvidenceUploadScreen';
 import TrackingScreen from './src/screens/TrackingScreen';
 import EmergencyScreen from './src/screens/EmergencyScreen';
 
-export default function App() {
+function MainApp() {
+  const insets = useSafeAreaInsets();
   const [currentScreen, setCurrentScreen] = useState('home');
   const [language, setLanguage] = useState('English');
   const [activeComplaintId, setActiveComplaintId] = useState(null);
   const [complaintData, setComplaintData] = useState(null);
-  const [lastAckNumber, setLastAckNumber] = useState('20261184920193');
+  const [lastAckNumber, setLastAckNumber] = useState(null); // Real state: no demo data
 
   const handleComplaintReady = (id, extracted) => {
     setActiveComplaintId(id);
@@ -35,11 +38,19 @@ export default function App() {
     setLastAckNumber(ack);
   };
 
+  // Dynamic notch/camera-hole safe top padding
+  const dynamicTopInset = Math.max(
+    insets.top,
+    Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : (Platform.OS === 'ios' ? 44 : 0)
+  );
+
+  const dynamicBottomInset = Math.max(insets.bottom, 10);
+
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+    <View style={[styles.rootContainer, { paddingTop: dynamicTopInset }]}>
+      <ExpoStatusBar style="dark" />
       <View style={styles.appContainer}>
-        {/* Main Screen Router */}
+        {/* Main Screen Content */}
         <View style={styles.screenContainer}>
           {currentScreen === 'home' && (
             <HomeScreen
@@ -100,8 +111,8 @@ export default function App() {
           )}
         </View>
 
-        {/* Persistent Bottom Tab Bar */}
-        <View style={styles.bottomTabBar}>
+        {/* Persistent Bottom Tab Bar with dynamic safe area inset */}
+        <View style={[styles.bottomTabBar, { paddingBottom: dynamicBottomInset }]}>
           <TouchableOpacity
             style={styles.tabItem}
             onPress={() => setCurrentScreen('home')}
@@ -126,7 +137,7 @@ export default function App() {
               <MaterialIcons name="mic" size={24} color="#FFFFFF" />
             </View>
             <Text style={[styles.tabLabel, currentScreen === 'chat' && styles.tabLabelActive]}>
-              Voice Assistant
+              Assistant
             </Text>
           </TouchableOpacity>
 
@@ -161,12 +172,20 @@ export default function App() {
           </TouchableOpacity>
         </View>
       </View>
-    </SafeAreaView>
+    </View>
+  );
+}
+
+export default function App() {
+  return (
+    <SafeAreaProvider>
+      <MainApp />
+    </SafeAreaProvider>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  rootContainer: {
     flex: 1,
     backgroundColor: '#0F172A'
   },
@@ -177,7 +196,6 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     backgroundColor: '#F8FAFC',
     ...(Platform.OS === 'web' ? {
-      height: '100vh',
       boxShadow: '0 8px 30px rgba(0,0,0,0.12)'
     } : {})
   },
@@ -189,7 +207,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: '#E2E8F0',
-    paddingVertical: 8,
+    paddingTop: 8,
     paddingHorizontal: 16,
     justifyContent: 'space-around',
     alignItems: 'center'

@@ -35,7 +35,7 @@ def sanitize_sensitive_data(text: str) -> Tuple[str, bool, str]:
             # Redact the actual secret digits/characters
             clean_text = clean_text.replace(secret, "[REDACTED_SECURITY_DATA]")
             warning = (
-                "⚠️ SECURITY ALERT: Never share your UPI PIN, ATM PIN, OTP, or Banking Password. "
+                "SECURITY ALERT: Never share your UPI PIN, ATM PIN, OTP, or Banking Password. "
                 "CyberSathi has automatically removed this sensitive data to protect your account. "
                 "Police and Cyber Cells will NEVER ask for your PIN or OTP."
             )

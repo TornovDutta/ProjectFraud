@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Animated } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Animated, Easing } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { audioService } from '../services/audio.js';
 import { translations } from '../services/i18n.js';
@@ -10,29 +10,70 @@ export default function VoiceRecorder({ language = 'English', onTranscript, isPr
   const recognizerRef = useRef(null);
   const t = translations[language] || translations.English;
 
+  // 5 animated wave bars
+  const waveBars = [
+    useRef(new Animated.Value(6)).current,
+    useRef(new Animated.Value(14)).current,
+    useRef(new Animated.Value(22)).current,
+    useRef(new Animated.Value(12)).current,
+    useRef(new Animated.Value(8)).current,
+  ];
+
   useEffect(() => {
-    let animation;
+    let pulseLoop;
+    let waveLoops = [];
+
     if (isRecording) {
-      animation = Animated.loop(
+      // Button Pulse Loop
+      pulseLoop = Animated.loop(
         Animated.sequence([
           Animated.timing(pulseAnim, {
             toValue: 1.25,
-            duration: 700,
+            duration: 600,
+            easing: Easing.inOut(Easing.ease),
             useNativeDriver: true
           }),
           Animated.timing(pulseAnim, {
             toValue: 1,
-            duration: 700,
+            duration: 600,
+            easing: Easing.inOut(Easing.ease),
             useNativeDriver: true
           })
         ])
       );
-      animation.start();
+      pulseLoop.start();
+
+      // Audio Wave Bars Loop
+      waveBars.forEach((bar, idx) => {
+        const minH = 6;
+        const maxH = 26 + (idx % 3) * 6;
+        const waveLoop = Animated.loop(
+          Animated.sequence([
+            Animated.timing(bar, {
+              toValue: maxH,
+              duration: 250 + idx * 70,
+              easing: Easing.inOut(Easing.sin),
+              useNativeDriver: false
+            }),
+            Animated.timing(bar, {
+              toValue: minH,
+              duration: 250 + idx * 70,
+              easing: Easing.inOut(Easing.sin),
+              useNativeDriver: false
+            })
+          ])
+        );
+        waveLoop.start();
+        waveLoops.push(waveLoop);
+      });
     } else {
       pulseAnim.setValue(1);
+      waveBars.forEach((bar) => bar.setValue(8));
     }
+
     return () => {
-      if (animation) animation.stop();
+      if (pulseLoop) pulseLoop.stop();
+      waveLoops.forEach((l) => l.stop());
     };
   }, [isRecording]);
 
@@ -40,7 +81,6 @@ export default function VoiceRecorder({ language = 'English', onTranscript, isPr
     if (isProcessing) return;
 
     if (isRecording) {
-      // Stop recording
       setIsRecording(false);
       if (recognizerRef.current) {
         try {
@@ -50,7 +90,6 @@ export default function VoiceRecorder({ language = 'English', onTranscript, isPr
         }
       }
     } else {
-      // Start recording
       setIsRecording(true);
       
       const recognizer = audioService.createSpeechRecognizer(
@@ -62,13 +101,6 @@ export default function VoiceRecorder({ language = 'English', onTranscript, isPr
         (error) => {
           console.warn("Speech error:", error);
           setIsRecording(false);
-          // Fallback simulation if speech recognition is unsupported or denied in browser
-          const sample = language === "Hindi"
-            ? "बैंक अधिकारी बनकर फोन आया था, मेरे 15000 रुपये कट गए कल UPI से।"
-            : language === "Bengali"
-            ? "ব্যাঙ্ক কর্মী সেজে ফোন করেছিল, আমার ১৫০০০ টাকা কেটে নিয়েছে UPI দিয়ে।"
-            : "Someone called me pretending to be a bank employee. Rs 15000 was deducted from my account via UPI.";
-          if (onTranscript) onTranscript(sample);
         },
         () => {
           setIsRecording(false);
@@ -82,17 +114,6 @@ export default function VoiceRecorder({ language = 'English', onTranscript, isPr
         } catch (e) {
           console.warn("Could not start recognition:", e);
         }
-      } else {
-        // Fallback for native/unsupported browser: simulate speech after 2 seconds
-        setTimeout(() => {
-          setIsRecording(false);
-          const sample = language === "Hindi"
-            ? "बैंक अधिकारी बनकर फोन आया था, मेरे 15000 रुपये कट गए कल UPI से।"
-            : language === "Bengali"
-            ? "ব্যাঙ্ক কর্মী সেজে ফোন করেছিল, আমার ১৫০০০ টাকা কেটে নিয়েছে UPI দিয়ে।"
-            : "Someone called me pretending to be a bank employee. Rs 15000 was deducted from my account via UPI.";
-          if (onTranscript) onTranscript(sample);
-        }, 2200);
       }
     }
   };
@@ -100,8 +121,23 @@ export default function VoiceRecorder({ language = 'English', onTranscript, isPr
   return (
     <View style={styles.container}>
       <Text style={styles.hintText}>
-        {isRecording ? t.speakNow : isProcessing ? "AI is processing..." : t.tapToSpeak}
+        {isRecording ? t.speakNow : isProcessing ? "Processing analysis..." : t.tapToSpeak}
       </Text>
+
+      {/* Animated Sound Wave Bar Visualization */}
+      {isRecording && (
+        <View style={styles.waveformContainer}>
+          {waveBars.map((barAnim, idx) => (
+            <Animated.View
+              key={idx}
+              style={[
+                styles.waveformBar,
+                { height: barAnim }
+              ]}
+            />
+          ))}
+        </View>
+      )}
 
       <View style={styles.micWrapper}>
         {isRecording && (
@@ -124,7 +160,7 @@ export default function VoiceRecorder({ language = 'English', onTranscript, isPr
         >
           <MaterialIcons
             name={isRecording ? "stop" : isProcessing ? "hourglass-empty" : "mic"}
-            size={36}
+            size={34}
             color="#FFFFFF"
           />
         </TouchableOpacity>
@@ -140,33 +176,45 @@ export default function VoiceRecorder({ language = 'English', onTranscript, isPr
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
-    paddingVertical: 14,
+    paddingVertical: 12,
     paddingHorizontal: 20
   },
   hintText: {
     fontSize: 14,
     fontWeight: '700',
     color: '#1E293B',
-    marginBottom: 10
+    marginBottom: 8
+  },
+  waveformContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    height: 30,
+    marginBottom: 8
+  },
+  waveformBar: {
+    width: 4,
+    backgroundColor: '#DC2626',
+    borderRadius: 2
   },
   micWrapper: {
-    width: 84,
-    height: 84,
+    width: 80,
+    height: 80,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative'
   },
   pulseRing: {
     position: 'absolute',
-    width: 84,
-    height: 84,
-    borderRadius: 42,
-    backgroundColor: 'rgba(239, 68, 68, 0.25)'
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: 'rgba(220, 38, 38, 0.25)'
   },
   micButton: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+    width: 66,
+    height: 66,
+    borderRadius: 33,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',

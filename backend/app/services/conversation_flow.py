@@ -11,7 +11,7 @@ QUESTIONS = {
         "ask_transaction_id": "Do you have the 12-digit UPI UTR number, bank reference number, or transaction ID from your SMS or banking app?",
         "ask_suspect_details": "Do you have the suspect's phone number, UPI ID (VPA), or website link they sent you?",
         "complaint_ready": "Thank you. I have collected the necessary details. I have prepared a formal complaint draft for your review. Please verify the information before official submission.",
-        "active_fraud_alert": "🚨 IMPORTANT: Because this financial fraud occurred recently, please dial 1930 immediately to invoke the Citizen Financial Cyber Fraud Reporting System (CFCFRMS). This enables banks to freeze the fraudster's beneficiary account in real time!"
+        "active_fraud_alert": "IMPORTANT: Because this financial fraud occurred recently, please dial 1930 immediately to invoke the Citizen Financial Cyber Fraud Reporting System (CFCFRMS). This enables banks to freeze the fraudster's beneficiary account in real time!"
     },
     "Hindi": {
         "greeting": "नमस्ते! मैं साइबर साथी (CyberSathi) हूँ। कृपया मुझे बताएं कि आपके साथ क्या हुआ। आप हिंदी, बंगाली या अंग्रेजी में बोल सकते हैं।",
@@ -21,7 +21,7 @@ QUESTIONS = {
         "ask_transaction_id": "क्या आपके पास 12 अंकों का UPI UTR नंबर, बैंक रेफरेंस नंबर या ट्रांजैक्शन आईडी है?",
         "ask_suspect_details": "क्या आपके पास धोखेबाज़ का फोन नंबर, UPI आईडी या भेजा गया कोई लिंक है?",
         "complaint_ready": "धन्यवाद। मैंने सभी आवश्यक विवरण एकत्र कर लिए हैं। मैंने आपकी समीक्षा के लिए एक औपचारिक शिकायत का मसौदा तैयार किया है। कृपया समीक्षा करें।",
-        "active_fraud_alert": "🚨 ज़रूरी सूचना: यदि यह धोखाधड़ी हाल ही में हुई है, तो तुरंत 1930 हेल्पलाइन पर कॉल करें ताकि बैंक धोखेबाज़ के खाते को फ्रीज कर सके!"
+        "active_fraud_alert": "ज़रूरी सूचना: यदि यह धोखाधड़ी हाल ही में हुई है, तो तुरंत 1930 हेल्पलाइन पर कॉल करें ताकि बैंक धोखेबाज़ के खाते को फ्रीज कर सके!"
     },
     "Bengali": {
         "greeting": "নমস্কার! আমি সাইবার সাথী (CyberSathi)। আপনার সাথে ঠিক কী ঘটেছে দয়া করে বলুন। আপনি বাংলা, হিন্দি বা ইংরেজিতে বলতে পারেন।",
@@ -31,7 +31,7 @@ QUESTIONS = {
         "ask_transaction_id": "আপনার ব্যাঙ্ক SMS বা অ্যাপে ১২ সংখ্যার UPI UTR নম্বর বা ট্রানজ্যাকশন আইডি কি আছে?",
         "ask_suspect_details": "প্রতারকের ফোন নম্বর, UPI আইডি বা পাঠানো কোনো লিঙ্ক কি আপনার কাছে আছে?",
         "complaint_ready": "ধন্যবাদ। আমি প্রয়োজনীয় তথ্য সংগ্রহ করেছি। আপনার পরীক্ষার জন্য একটি আনুষ্ঠানিক অভিযোগের খসড়া তৈরি করা হয়েছে।",
-        "active_fraud_alert": "🚨 বিশেষ জরুরি: এই আর্থিক প্রতারণা সম্প্রতি ঘটলে অবিলম্বে ১৯৩০ হেল্পলাইনে কল করুন যাতে ব্যাঙ্ক প্রতারকের অ্যাকাউন্ট ফ্রিজ করতে পারে!"
+        "active_fraud_alert": "জরুরি তথ্য: এই আর্থিক প্রতারণা সম্প্রতি ঘটলে অবিলম্বে ১৯৩০ হেল্পলাইনে কল করুন যাতে ব্যাঙ্ক প্রতারকের অ্যাকাউন্ট ফ্রিজ করতে পারে!"
     }
 }
 

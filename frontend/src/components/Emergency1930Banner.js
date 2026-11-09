@@ -1,10 +1,30 @@
-import React from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Linking } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, Linking, Animated } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { translations } from '../services/i18n';
 
 export default function Emergency1930Banner({ language = 'English', onOpenGuide }) {
   const t = translations[language] || translations.English;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.08,
+          duration: 900,
+          useNativeDriver: true
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 900,
+          useNativeDriver: true
+        })
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, []);
 
   const handleCall = () => {
     Linking.openURL('tel:1930').catch(() => {
@@ -15,9 +35,9 @@ export default function Emergency1930Banner({ language = 'English', onOpenGuide 
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
-        <View style={styles.iconBadge}>
+        <Animated.View style={[styles.iconBadge, { transform: [{ scale: pulseAnim }] }]}>
           <MaterialIcons name="phone-in-talk" size={20} color="#FFFFFF" />
-        </View>
+        </Animated.View>
         <View style={styles.textContainer}>
           <Text style={styles.title}>{t.emergencyHelpline}</Text>
           <Text style={styles.subtitle}>{t.emergencyDesc}</Text>

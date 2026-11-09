@@ -1,5 +1,5 @@
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { StyleSheet, Text, View, Animated } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { translations } from '../services/i18n';
 
@@ -8,60 +8,81 @@ export default function ExtractionSummaryCard({ extracted = {}, missing = [], la
   
   const totalMandatory = 4;
   const collectedCount = totalMandatory - missing.length;
-  const progressPercent = Math.min(100, Math.max(10, Math.round((collectedCount / totalMandatory) * 100)));
+  const progressPercent = Math.min(100, Math.max(0, Math.round((collectedCount / totalMandatory) * 100)));
+
+  const progressAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.timing(progressAnim, {
+      toValue: progressPercent,
+      duration: 500,
+      useNativeDriver: false
+    }).start();
+  }, [progressPercent]);
+
+  const animatedWidth = progressAnim.interpolate({
+    inputRange: [0, 100],
+    outputRange: ['0%', '100%']
+  });
+
+  const hasAnyData = Object.keys(extracted).length > 0;
 
   return (
     <View style={styles.card}>
       <View style={styles.header}>
         <View style={styles.titleRow}>
-          <MaterialIcons name="auto-awesome" size={18} color="#2563EB" />
+          <MaterialIcons name="fact-check" size={18} color="#2563EB" />
           <Text style={styles.title}>{t.extractedDetails}</Text>
         </View>
         <Text style={styles.badge}>{progressPercent}% Complete</Text>
       </View>
 
-      {/* Progress Bar */}
+      {/* Animated Progress Bar */}
       <View style={styles.progressTrack}>
-        <View style={[styles.progressBar, { width: `${progressPercent}%` }]} />
+        <Animated.View style={[styles.progressBar, { width: animatedWidth }]} />
       </View>
 
       {/* Extracted Chips */}
-      <View style={styles.chipsContainer}>
-        {extracted.fraud_amount ? (
-          <View style={[styles.chip, styles.chipFilled]}>
-            <MaterialIcons name="currency-rupee" size={14} color="#059669" />
-            <Text style={styles.chipTextBold}>₹{Number(extracted.fraud_amount).toLocaleString('en-IN')}</Text>
-          </View>
-        ) : null}
+      {hasAnyData ? (
+        <View style={styles.chipsContainer}>
+          {extracted.fraud_amount ? (
+            <View style={[styles.chip, styles.chipFilled]}>
+              <MaterialIcons name="currency-rupee" size={14} color="#059669" />
+              <Text style={styles.chipTextBold}>INR {Number(extracted.fraud_amount).toLocaleString('en-IN')}</Text>
+            </View>
+          ) : null}
 
-        {extracted.payment_method ? (
-          <View style={[styles.chip, styles.chipFilled]}>
-            <MaterialIcons name="payment" size={14} color="#059669" />
-            <Text style={styles.chipTextBold}>{extracted.payment_method}</Text>
-          </View>
-        ) : null}
+          {extracted.payment_method ? (
+            <View style={[styles.chip, styles.chipFilled]}>
+              <MaterialIcons name="payment" size={14} color="#059669" />
+              <Text style={styles.chipTextBold}>{extracted.payment_method}</Text>
+            </View>
+          ) : null}
 
-        {extracted.transaction_id ? (
-          <View style={[styles.chip, styles.chipFilled]}>
-            <MaterialIcons name="receipt-long" size={14} color="#059669" />
-            <Text style={styles.chipTextBold}>UTR: {extracted.transaction_id}</Text>
-          </View>
-        ) : null}
+          {extracted.transaction_id ? (
+            <View style={[styles.chip, styles.chipFilled]}>
+              <MaterialIcons name="receipt-long" size={14} color="#059669" />
+              <Text style={styles.chipTextBold}>UTR: {extracted.transaction_id}</Text>
+            </View>
+          ) : null}
 
-        {extracted.incident_date ? (
-          <View style={[styles.chip, styles.chipFilled]}>
-            <MaterialIcons name="event" size={14} color="#059669" />
-            <Text style={styles.chipTextBold}>{extracted.incident_date}</Text>
-          </View>
-        ) : null}
+          {extracted.incident_date ? (
+            <View style={[styles.chip, styles.chipFilled]}>
+              <MaterialIcons name="event" size={14} color="#059669" />
+              <Text style={styles.chipTextBold}>{extracted.incident_date}</Text>
+            </View>
+          ) : null}
 
-        {extracted.suspect_phone ? (
-          <View style={[styles.chip, styles.chipFilled]}>
-            <MaterialIcons name="phone" size={14} color="#D97706" />
-            <Text style={styles.chipTextBold}>Suspect: {extracted.suspect_phone}</Text>
-          </View>
-        ) : null}
-      </View>
+          {extracted.suspect_phone ? (
+            <View style={[styles.chip, styles.chipFilled]}>
+              <MaterialIcons name="phone" size={14} color="#D97706" />
+              <Text style={styles.chipTextBold}>Suspect: {extracted.suspect_phone}</Text>
+            </View>
+          ) : null}
+        </View>
+      ) : (
+        <Text style={styles.noDataHint}>Speak to begin automatic field extraction.</Text>
+      )}
 
       {/* Missing Info Prompt */}
       {missing.length > 0 && (
@@ -71,7 +92,7 @@ export default function ExtractionSummaryCard({ extracted = {}, missing = [], la
             {missing.map((field) => (
               <View key={field} style={styles.missingBadge}>
                 <Text style={styles.missingText}>
-                  {field === 'fraud_amount' ? 'Amount ₹' :
+                  {field === 'fraud_amount' ? 'Amount (INR)' :
                    field === 'payment_method' ? 'Payment Method' :
                    field === 'incident_date' ? 'Date & Time' : 'Transaction ID / UTR'}
                 </Text>
@@ -81,8 +102,9 @@ export default function ExtractionSummaryCard({ extracted = {}, missing = [], la
         </View>
       )}
 
-      {/* Security Guarantee */}
+      {/* Security Guarantee without emoji */}
       <View style={styles.securityBox}>
+        <MaterialIcons name="security" size={14} color="#475569" style={{ marginRight: 6 }} />
         <Text style={styles.securityText}>{t.securityWarning}</Text>
       </View>
     </View>
@@ -129,16 +151,22 @@ const styles = StyleSheet.create({
     borderRadius: 10
   },
   progressTrack: {
-    height: 4,
+    height: 5,
     backgroundColor: '#F1F5F9',
-    borderRadius: 2,
+    borderRadius: 3,
     marginVertical: 10,
     overflow: 'hidden'
   },
   progressBar: {
     height: '100%',
     backgroundColor: '#2563EB',
-    borderRadius: 2
+    borderRadius: 3
+  },
+  noDataHint: {
+    fontSize: 12,
+    color: '#94A3B8',
+    fontStyle: 'italic',
+    marginVertical: 4
   },
   chipsContainer: {
     flexDirection: 'row',
@@ -197,9 +225,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
     borderRadius: 6,
     paddingVertical: 6,
-    paddingHorizontal: 10
+    paddingHorizontal: 10,
+    flexDirection: 'row',
+    alignItems: 'center'
   },
   securityText: {
+    flex: 1,
     fontSize: 11,
     color: '#475569',
     lineHeight: 15

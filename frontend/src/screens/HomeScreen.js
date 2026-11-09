@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Linking } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Linking, Animated } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import Emergency1930Banner from '../components/Emergency1930Banner';
 import LanguageSelector from '../components/LanguageSelector';
@@ -7,6 +7,46 @@ import { translations } from '../services/i18n';
 
 export default function HomeScreen({ language, onSelectLanguage, onNavigate }) {
   const t = translations[language] || translations.English;
+
+  // Entrance slide and fade animations
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(15)).current;
+  const pulseCta = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    // Fade in
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 400,
+        useNativeDriver: true
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 400,
+        useNativeDriver: true
+      })
+    ]).start();
+
+    // Subtle breathing pulse for CTA button
+    const ctaLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseCta, {
+          toValue: 1.02,
+          duration: 1000,
+          useNativeDriver: true
+        }),
+        Animated.timing(pulseCta, {
+          toValue: 1,
+          duration: 1000,
+          useNativeDriver: true
+        })
+      ])
+    );
+    ctaLoop.start();
+
+    return () => ctaLoop.stop();
+  }, []);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -32,8 +72,16 @@ export default function HomeScreen({ language, onSelectLanguage, onNavigate }) {
         onOpenGuide={() => onNavigate('emergency')}
       />
 
-      {/* Main Voice Report CTA */}
-      <View style={styles.mainActionCard}>
+      {/* Animated Main Voice Report CTA */}
+      <Animated.View
+        style={[
+          styles.mainActionCard,
+          {
+            opacity: fadeAnim,
+            transform: [{ translateY: slideAnim }, { scale: pulseCta }]
+          }
+        ]}
+      >
         <View style={styles.cardHeader}>
           <View style={styles.micCircle}>
             <MaterialIcons name="mic" size={32} color="#FFFFFF" />
@@ -52,10 +100,10 @@ export default function HomeScreen({ language, onSelectLanguage, onNavigate }) {
           <MaterialIcons name="record-voice-over" size={22} color="#FFFFFF" />
           <Text style={styles.voiceCtaText}>{t.startVoiceReport}</Text>
         </TouchableOpacity>
-      </View>
+      </Animated.View>
 
       {/* Secondary Actions Row */}
-      <View style={styles.actionsRow}>
+      <Animated.View style={[styles.actionsRow, { opacity: fadeAnim }]}>
         <TouchableOpacity
           style={styles.subActionCard}
           onPress={() => onNavigate('tracking')}
@@ -75,7 +123,7 @@ export default function HomeScreen({ language, onSelectLanguage, onNavigate }) {
           <Text style={styles.subActionTitle}>Golden Hour</Text>
           <Text style={styles.subActionDesc}>Bank freeze instructions</Text>
         </TouchableOpacity>
-      </View>
+      </Animated.View>
 
       {/* Official Government Portal Info Box */}
       <View style={styles.govtBox}>
@@ -104,14 +152,14 @@ export default function HomeScreen({ language, onSelectLanguage, onNavigate }) {
           <MaterialIcons name="qr-code-scanner" size={22} color="#D97706" />
           <View style={styles.scamText}>
             <Text style={styles.scamTitle}>UPI QR Code Scam</Text>
-            <Text style={styles.scamDesc}>Entering UPI PIN to "receive" money. (PIN is ONLY used to send money!)</Text>
+            <Text style={styles.scamDesc}>Entering UPI PIN to receive money. UPI PIN is only required to send money.</Text>
           </View>
         </View>
 
         <View style={styles.scamItem}>
           <MaterialIcons name="support-agent" size={22} color="#DC2626" />
           <View style={styles.scamText}>
-            <Text style={styles.scamTitle}>Fake Bank Manager Call</Text>
+            <Text style={styles.scamTitle}>Fake Bank Officer Call</Text>
             <Text style={styles.scamDesc}>Caller asking for OTP to stop KYC suspension or block unauthorized card charges.</Text>
           </View>
         </View>
@@ -119,7 +167,7 @@ export default function HomeScreen({ language, onSelectLanguage, onNavigate }) {
         <View style={styles.scamItem}>
           <MaterialIcons name="work-outline" size={22} color="#2563EB" />
           <View style={styles.scamText}>
-            <Text style={styles.scamTitle}>Telegram / Part-Time Job Scam</Text>
+            <Text style={styles.scamTitle}>Part-Time Job or Task Scam</Text>
             <Text style={styles.scamDesc}>Promises of daily earnings for rating videos or investing in fake crypto platforms.</Text>
           </View>
         </View>
@@ -138,7 +186,7 @@ const styles = StyleSheet.create({
   },
   topBar: {
     paddingHorizontal: 20,
-    paddingTop: 16,
+    paddingTop: 12,
     paddingBottom: 6,
     flexDirection: 'row',
     justifyContent: 'space-between',

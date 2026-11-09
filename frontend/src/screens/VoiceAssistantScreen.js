@@ -204,30 +204,47 @@ export default function VoiceAssistantScreen({ language, onNavigate, onComplaint
         </View>
       )}
 
-      {/* Voice Recorder & Text Input Controls */}
+      {/* Voice Recorder & Optional Text Message Controls */}
       <View style={styles.inputArea}>
+        {/* Primary Voice Recording */}
         <VoiceRecorder
           language={language}
           onTranscript={(text) => handleSendMessage(text)}
           isProcessing={isProcessing}
         />
 
-        <View style={styles.textInputRow}>
-          <TextInput
-            style={styles.textInput}
-            placeholder="Type incident details..."
-            placeholderTextColor="#94A3B8"
-            value={inputText}
-            onChangeText={setInputText}
-            onSubmitEditing={() => handleSendMessage()}
-          />
-          <TouchableOpacity
-            style={[styles.sendButton, !inputText.trim() && styles.sendButtonDisabled]}
-            onPress={() => handleSendMessage()}
-            disabled={!inputText.trim()}
-          >
-            <MaterialIcons name="send" size={20} color="#FFFFFF" />
-          </TouchableOpacity>
+        {/* Section Divider */}
+        <View style={styles.dividerRow}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>{t.orDivider || "OR"}</Text>
+          <View style={styles.dividerLine} />
+        </View>
+
+        {/* Optional Text Message Section */}
+        <View style={styles.optionalSection}>
+          <View style={styles.optionalLabelRow}>
+            <MaterialIcons name="edit-note" size={16} color="#64748B" />
+            <Text style={styles.optionalLabelText}>{t.typeMessageOptional || "Type Message (Optional)"}</Text>
+          </View>
+          <View style={styles.textInputRow}>
+            <TextInput
+              style={styles.textInput}
+              placeholder={t.typeMessagePlaceholder || "Optional: Type incident details or UTR here..."}
+              placeholderTextColor="#94A3B8"
+              value={inputText}
+              onChangeText={setInputText}
+              onSubmitEditing={() => handleSendMessage()}
+              editable={!isProcessing}
+            />
+            <TouchableOpacity
+              style={[styles.sendButton, (!inputText.trim() || isProcessing) && styles.sendButtonDisabled]}
+              onPress={() => handleSendMessage()}
+              disabled={!inputText.trim() || isProcessing}
+              activeOpacity={0.8}
+            >
+              <MaterialIcons name="send" size={18} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
     </View>
@@ -400,13 +417,46 @@ const styles = StyleSheet.create({
   inputArea: {
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
-    borderTopColor: '#E2E8F0'
+    borderTopColor: '#E2E8F0',
+    paddingTop: 4
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    marginVertical: 4
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#E2E8F0'
+  },
+  dividerText: {
+    paddingHorizontal: 10,
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#94A3B8',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5
+  },
+  optionalSection: {
+    paddingHorizontal: 16,
+    paddingBottom: 8
+  },
+  optionalLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 6
+  },
+  optionalLabelText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748B'
   },
   textInputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingBottom: 12,
     gap: 8
   },
   textInput: {

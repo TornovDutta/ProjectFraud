@@ -1,19 +1,25 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Animated, Easing, Platform, Modal, TextInput } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Animated, Easing, Platform, Modal, TextInput, ActivityIndicator } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useAudioRecorder, RecordingPresets, requestRecordingPermissionsAsync } from 'expo-audio';
 import { audioService } from '../services/audio';
+import { api } from '../services/api';
 import { translations } from '../services/i18n';
 
 export default function VoiceRecorder({ language = 'English', onTranscript, isProcessing = false }) {
-  const [isListening, setIsListening] = useState(false);
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const [isTranscribing, setIsTranscribing] = useState(false);
   const [showVoiceModal, setShowVoiceModal] = useState(false);
   const [spokenText, setSpokenText] = useState("");
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const webRecognizerRef = useRef(null);
+  const timerIntervalRef = useRef(null);
   const t = translations[language] || translations.English;
 
-  // Animated wave bars
+  // Animated wave bars (5 live bars)
   const waveBars = [
     useRef(new Animated.Value(6)).current,
     useRef(new Animated.Value(14)).current,
@@ -26,7 +32,7 @@ export default function VoiceRecorder({ language = 'English', onTranscript, isPr
     let pulseLoop;
     let waveLoops = [];
 
-    if (isListening) {
+    if (isRecording) {
       pulseLoop = Animated.loop(
         Animated.sequence([
           Animated.timing(pulseAnim, {
@@ -76,37 +82,88 @@ export default function VoiceRecorder({ language = 'English', onTranscript, isPr
       if (pulseLoop) pulseLoop.stop();
       waveLoops.forEach((l) => l.stop());
     };
-  }, [isListening]);
+  }, [isRecording]);
 
-  const handleMicPress = () => {
-    if (isProcessing) return;
+  const startTimer = () => {
+    setRecordingDuration(0);
+    timerIntervalRef.current = setInterval(() => {
+      setRecordingDuration((prev) => prev + 1);
+    }, 1000);
+  };
 
-    if (Platform.OS === 'web') {
-      // Browser Web Speech Recognition
-      if (isListening) {
-        setIsListening(false);
-        if (webRecognizerRef.current) {
-          try {
-            webRecognizerRef.current.stop();
-          } catch (e) {
-            // ignore
+  const stopTimer = () => {
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+  };
+
+  const formatSeconds = (sec) => {
+    const mins = Math.floor(sec / 60);
+    const secs = sec % 60;
+    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+  };
+
+  const handleMicPress = async () => {
+    if (isProcessing || isTranscribing) return;
+
+    if (isRecording) {
+      // 1. STOP RECORDING
+      setIsRecording(false);
+      stopTimer();
+
+      if (Platform.OS === 'web' && webRecognizerRef.current) {
+        try {
+          webRecognizerRef.current.stop();
+        } catch (e) {
+          // ignore
+        }
+        webRecognizerRef.current = null;
+        return;
+      }
+
+      // Stop native hardware recorder
+      setIsTranscribing(true);
+      try {
+        await recorder.stop();
+        const uri = recorder.uri;
+        if (uri) {
+          const transcript = await api.uploadAudio(uri, language);
+          if (transcript && onTranscript) {
+            onTranscript(transcript);
           }
         }
-      } else {
+      } catch (err) {
+        console.warn("Stop recording error:", err);
+        setShowVoiceModal(true);
+      } finally {
+        setIsTranscribing(false);
+      }
+    } else {
+      // 2. START RECORDING
+      // Web platform: Try Web Speech API for immediate streaming speech-to-text
+      if (Platform.OS === 'web') {
         const recognizer = audioService.createSpeechRecognizer(
           language,
           (text) => {
-            setIsListening(false);
+            setIsRecording(false);
+            stopTimer();
             if (onTranscript) onTranscript(text);
           },
-          (error) => {
-            console.warn("Speech recognition error:", error);
-            setIsListening(false);
-            // Open dictation modal if browser speech recognition is denied
-            setShowVoiceModal(true);
+          async (error) => {
+            console.warn("Web Speech API note, falling back to audio recorder:", error);
+            try {
+              await recorder.prepareToRecordAsync();
+              recorder.record();
+              setIsRecording(true);
+              startTimer();
+            } catch (recErr) {
+              setShowVoiceModal(true);
+            }
           },
           () => {
-            setIsListening(false);
+            setIsRecording(false);
+            stopTimer();
           }
         );
 
@@ -114,18 +171,32 @@ export default function VoiceRecorder({ language = 'English', onTranscript, isPr
           webRecognizerRef.current = recognizer;
           try {
             recognizer.start();
-            setIsListening(true);
+            setIsRecording(true);
+            startTimer();
+            return;
           } catch (e) {
-            console.warn("Could not start web speech recognizer:", e);
-            setShowVoiceModal(true);
+            console.warn("Web recognizer start failed:", e);
           }
-        } else {
-          setShowVoiceModal(true);
         }
       }
-    } else {
-      // Mobile (Expo Go): Open native voice dictation sheet with zero native module crashes
-      setShowVoiceModal(true);
+
+      // Native mobile hardware recording (Android / iOS)
+      try {
+        const { status } = await requestRecordingPermissionsAsync();
+        if (status !== 'granted') {
+          setShowVoiceModal(true);
+          return;
+        }
+
+        await recorder.prepareToRecordAsync();
+        recorder.record();
+        setIsRecording(true);
+        startTimer();
+      } catch (err) {
+        console.warn("Audio recording start error:", err);
+        // Fallback to dictation note modal if hardware recording encounters issues
+        setShowVoiceModal(true);
+      }
     }
   };
 
@@ -141,30 +212,39 @@ export default function VoiceRecorder({ language = 'English', onTranscript, isPr
   return (
     <View style={styles.container}>
       <Text style={styles.hintText}>
-        {isListening
-          ? t.speakNow
+        {isTranscribing
+          ? "Transcribing your voice..."
+          : isRecording
+          ? `${t.speakNow} (${formatSeconds(recordingDuration)})`
           : isProcessing
           ? "Processing complaint..."
-          : t.tapToSpeak}
+          : t.voiceInputTitle || t.tapToSpeak}
       </Text>
 
-      {/* Animated Sound Wave Bar Visualization */}
-      {isListening && (
-        <View style={styles.waveformContainer}>
-          {waveBars.map((barAnim, idx) => (
-            <Animated.View
-              key={idx}
-              style={[
-                styles.waveformBar,
-                { height: barAnim }
-              ]}
-            />
-          ))}
+      {/* Animated Sound Wave Bar Visualization & Timer */}
+      {isRecording && (
+        <View style={styles.recordingStatusRow}>
+          <View style={styles.liveBadge}>
+            <View style={styles.redDot} />
+            <Text style={styles.timerText}>{formatSeconds(recordingDuration)}</Text>
+          </View>
+          <View style={styles.waveformContainer}>
+            {waveBars.map((barAnim, idx) => (
+              <Animated.View
+                key={idx}
+                style={[
+                  styles.waveformBar,
+                  { height: barAnim }
+                ]}
+              />
+            ))}
+          </View>
         </View>
       )}
 
+      {/* Central Microphone Button */}
       <View style={styles.micWrapper}>
-        {isListening && (
+        {isRecording && (
           <Animated.View
             style={[
               styles.pulseRing,
@@ -175,28 +255,34 @@ export default function VoiceRecorder({ language = 'English', onTranscript, isPr
         <TouchableOpacity
           style={[
             styles.micButton,
-            isListening ? styles.micButtonRecording : styles.micButtonIdle,
-            isProcessing && styles.micButtonDisabled
+            isRecording ? styles.micButtonRecording : styles.micButtonIdle,
+            (isProcessing || isTranscribing) && styles.micButtonDisabled
           ]}
           onPress={handleMicPress}
-          disabled={isProcessing}
+          disabled={isProcessing || isTranscribing}
           activeOpacity={0.8}
         >
-          <MaterialIcons
-            name={isListening ? "stop" : isProcessing ? "hourglass-empty" : "mic"}
-            size={34}
-            color="#FFFFFF"
-          />
+          {isTranscribing ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <MaterialIcons
+              name={isRecording ? "stop" : isProcessing ? "hourglass-empty" : "mic"}
+              size={36}
+              color="#FFFFFF"
+            />
+          )}
         </TouchableOpacity>
       </View>
 
       <Text style={styles.subtext}>
-        {isListening
-          ? t.recording
-          : "Tap mic to speak your cyber fraud complaint"}
+        {isTranscribing
+          ? "Extracting details from voice note..."
+          : isRecording
+          ? t.stopRecording || "Tap red button to finish and send voice"
+          : "Tap microphone to speak your cyber fraud complaint"}
       </Text>
 
-      {/* Voice Dictation Sheet for Mobile Phone */}
+      {/* Voice Dictation Sheet Fallback (If mic permissions blocked) */}
       <Modal
         visible={showVoiceModal}
         transparent
@@ -216,7 +302,7 @@ export default function VoiceRecorder({ language = 'English', onTranscript, isPr
             </View>
 
             <Text style={styles.modalDesc}>
-              Tap the microphone icon on your phone keyboard to speak in Hindi, Bengali, or English:
+              Tap the microphone icon on your keyboard to speak in Hindi, Bengali, or English:
             </Text>
 
             <TextInput
@@ -264,21 +350,47 @@ export default function VoiceRecorder({ language = 'English', onTranscript, isPr
 const styles = StyleSheet.create({
   container: {
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 20
+    paddingVertical: 10,
+    paddingHorizontal: 16
   },
   hintText: {
     fontSize: 14,
     fontWeight: '700',
     color: '#1E293B',
-    marginBottom: 6
+    marginBottom: 6,
+    textAlign: 'center'
+  },
+  recordingStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 8
+  },
+  liveBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FEE2E2',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12
+  },
+  redDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#DC2626'
+  },
+  timerText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#DC2626'
   },
   waveformContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    height: 30,
-    marginBottom: 8
+    height: 28
   },
   waveformBar: {
     width: 4,
@@ -286,23 +398,23 @@ const styles = StyleSheet.create({
     borderRadius: 2
   },
   micWrapper: {
-    width: 80,
-    height: 80,
+    width: 82,
+    height: 82,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative'
   },
   pulseRing: {
     position: 'absolute',
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 82,
+    height: 82,
+    borderRadius: 41,
     backgroundColor: 'rgba(220, 38, 38, 0.25)'
   },
   micButton: {
-    width: 66,
-    height: 66,
-    borderRadius: 33,
+    width: 68,
+    height: 68,
+    borderRadius: 34,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',

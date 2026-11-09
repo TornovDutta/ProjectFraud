@@ -62,12 +62,17 @@ export const api = {
       const filename = audioUri.split('/').pop() || 'recording.m4a';
       const fileType = Platform.OS === 'ios' ? 'audio/wav' : 'audio/m4a';
       
-      // On React Native, fetch handles { uri, name, type } multipart
-      formData.append('file', {
-        uri: audioUri,
-        name: filename,
-        type: fileType
-      });
+      if (Platform.OS === 'web') {
+        const fileRes = await fetch(audioUri);
+        const blob = await fileRes.blob();
+        formData.append('file', blob, filename);
+      } else {
+        formData.append('file', {
+          uri: audioUri,
+          name: filename,
+          type: fileType
+        });
+      }
       formData.append('language', language);
 
       const res = await fetch(`${API_BASE_URL}/chat/transcribe-audio`, {

@@ -82,20 +82,15 @@ export const api = {
       if (res.ok) {
         const data = await res.json();
         if (data.transcript && data.transcript.trim()) {
-          return data.transcript;
+          return data.transcript.trim();
         }
       }
     } catch (e) {
       console.warn("Audio upload to backend note:", e);
     }
     
-    // Resilient fallback so citizen voice complaints are never dropped silently
-    if (language === 'Hindi') {
-      return "बैंक अधिकारी बनकर किसी ने फोन किया और UPI से 15,000 रुपये कट गए। UTR 987654321012.";
-    } else if (language === 'Bengali') {
-      return "আমার ব্যাঙ্ক কর্মী সেজে ফোন করেছিল, UPI দিয়ে ১৫০০০ টাকা কেটে নিয়েছে।";
-    }
-    return "Someone called pretending to be a bank manager. Unauthorized deduction of Rs 15,000 occurred via UPI. UTR is 987654321012.";
+    // Do not return any demo data if audio was silent or unparsed
+    return "";
   },
 
   async sendMessage(complaintId, message, language = "English") {

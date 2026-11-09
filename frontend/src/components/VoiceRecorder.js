@@ -14,6 +14,7 @@ export default function VoiceRecorder({ language = 'English', onTranscript, isPr
   const [showVoiceModal, setShowVoiceModal] = useState(false);
   const [spokenText, setSpokenText] = useState("");
   const [liveHeardText, setLiveHeardText] = useState("");
+  const [speechFeedback, setSpeechFeedback] = useState("");
 
   const speechTranscriptRef = useRef("");
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -106,21 +107,23 @@ export default function VoiceRecorder({ language = 'English', onTranscript, isPr
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   };
 
-  const getLanguageFallback = () => {
-    if (language === 'Hindi') {
-      return "बैंक अधिकारी बनकर फोन आया था, मेरे खाते से 15000 रुपये कट गए कल दोपहर UPI से। UTR 987654321012.";
-    } else if (language === 'Bengali') {
-      return "আমার ব্যাঙ্ক কর্মী সেজে ফোন করেছিল, UPI দিয়ে ১৫০০০ টাকা কেটে নিয়েছে।";
-    }
-    return "Someone called pretending to be a bank manager. Unauthorized deduction of Rs 15,000 occurred via UPI. UTR is 987654321012.";
+  const showNoSpeechNotice = () => {
+    const notice = language === 'Hindi'
+      ? "कोई आवाज़ नहीं मिली। कृपया माइक्रोफ़ोन के पास साफ बोलें।"
+      : language === 'Bengali'
+      ? "কোনো শব্দ শোনা যায়নি। দয়া করে স্পষ্টভাবে বলুন।"
+      : "No speech was detected. Please speak clearly into your microphone.";
+    setSpeechFeedback(notice);
+    setTimeout(() => setSpeechFeedback(""), 4000);
   };
 
   const handleMicPress = async () => {
     if (isProcessing || isTranscribing) return;
+    setSpeechFeedback("");
 
     if (isRecording) {
       // ==============================================================
-      // 1. STOP RECORDING & SEND VOICE MESSAGE
+      // 1. STOP RECORDING & SEND REAL VOICE MESSAGE ONLY
       // ==============================================================
       setIsRecording(false);
       stopTimer();
@@ -142,13 +145,8 @@ export default function VoiceRecorder({ language = 'English', onTranscript, isPr
           if (onTranscript) {
             onTranscript(capturedSpokenText);
           }
-          return;
-        }
-
-        // If recognizer returned empty silence, deliver resilient text so user complaint proceeds
-        const fallback = getLanguageFallback();
-        if (onTranscript) {
-          onTranscript(fallback);
+        } else {
+          showNoSpeechNotice();
         }
         return;
       }
@@ -158,24 +156,21 @@ export default function VoiceRecorder({ language = 'English', onTranscript, isPr
       try {
         await recorder.stop();
         const uri = recorder.uri;
-        let transcript = null;
+        let transcript = "";
         if (uri) {
           transcript = await api.uploadAudio(uri, language);
         }
 
-        if (!transcript || !transcript.trim()) {
-          transcript = getLanguageFallback();
-        }
-
-        if (onTranscript) {
-          onTranscript(transcript);
+        if (transcript && transcript.trim()) {
+          if (onTranscript) {
+            onTranscript(transcript.trim());
+          }
+        } else {
+          showNoSpeechNotice();
         }
       } catch (err) {
         console.warn("Mobile stop recording note:", err);
-        const fallback = getLanguageFallback();
-        if (onTranscript) {
-          onTranscript(fallback);
-        }
+        showNoSpeechNotice();
       } finally {
         setIsTranscribing(false);
         speechTranscriptRef.current = "";
@@ -187,6 +182,7 @@ export default function VoiceRecorder({ language = 'English', onTranscript, isPr
       // ==============================================================
       speechTranscriptRef.current = "";
       setLiveHeardText("");
+      setSpeechFeedback("");
 
       // Web platform: Start Web Speech API with live streaming accumulation
       if (Platform.OS === 'web') {
@@ -331,6 +327,14 @@ export default function VoiceRecorder({ language = 'English', onTranscript, isPr
           ? "Tap red button to finish and send voice message"
           : "Tap microphone to speak your cyber fraud complaint"}
       </Text>
+
+      {/* Notice when mic captures silence or no speech detected (No fake demo data) */}
+      {speechFeedback ? (
+        <View style={styles.feedbackBanner}>
+          <MaterialIcons name="mic-off" size={16} color="#DC2626" />
+          <Text style={styles.feedbackText}>{speechFeedback}</Text>
+        </View>
+      ) : null}
 
       {/* Voice Dictation Sheet Fallback (If mic permissions blocked) */}
       <Modal
@@ -507,6 +511,25 @@ const styles = StyleSheet.create({
     marginTop: 8,
     maxWidth: 320,
     lineHeight: 16
+  },
+  feedbackBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginTop: 8,
+    maxWidth: 320
+  },
+  feedbackText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#DC2626',
+    flex: 1
   },
   modalOverlay: {
     flex: 1,

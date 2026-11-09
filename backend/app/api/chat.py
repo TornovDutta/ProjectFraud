@@ -243,19 +243,19 @@ async def transcribe_audio(
         except Exception as e:
             print(f"Whisper API attempt note: {e}")
 
-    # 3. Fallback: If ambient recording was captured or audio format needs conversion,
-    # prompt the citizen cleanly without failing.
+    # If no speech was detected in the audio file, return empty transcript (no demo data)
     if not transcript:
-        if "hindi" in language.lower():
-            transcript = "मेरे खाते से 15000 रुपये कट गए UPI से।"
-        elif "bengali" in language.lower():
-            transcript = "আমার অ্যাকাউন্ট থেকে ১৫০০০ টাকা কেটে নিয়েছে UPI দিয়ে।"
-        else:
-            transcript = "Someone called pretending to be a bank manager. Rs 15000 was deducted via UPI."
+        return {
+            "success": False,
+            "filename": filename,
+            "language": language,
+            "transcript": "",
+            "message": "No speech detected in audio. Please speak clearly into the microphone."
+        }
 
     return {
         "success": True,
         "filename": filename,
         "language": language,
-        "transcript": transcript
+        "transcript": transcript.strip()
     }

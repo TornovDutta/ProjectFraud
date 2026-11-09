@@ -56,6 +56,34 @@ export const api = {
     };
   },
 
+  async uploadAudio(audioUri, language = "English") {
+    try {
+      const formData = new FormData();
+      const filename = audioUri.split('/').pop() || 'recording.m4a';
+      const fileType = Platform.OS === 'ios' ? 'audio/wav' : 'audio/m4a';
+      
+      // On React Native, fetch handles { uri, name, type } multipart
+      formData.append('file', {
+        uri: audioUri,
+        name: filename,
+        type: fileType
+      });
+      formData.append('language', language);
+
+      const res = await fetch(`${API_BASE_URL}/chat/transcribe-audio`, {
+        method: 'POST',
+        body: formData
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return data.transcript;
+      }
+    } catch (e) {
+      console.warn("Audio upload to backend failed:", e);
+    }
+    return null;
+  },
+
   async sendMessage(complaintId, message, language = "English") {
     try {
       const res = await fetch(`${API_BASE_URL}/chat/message`, {

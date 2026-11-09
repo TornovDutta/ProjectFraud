@@ -11,12 +11,12 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=F
 
 async def get_current_user(token: Optional[str] = Depends(oauth2_scheme)) -> UserResponse:
     if not token:
-        # Default demo citizen if no token provided, ensuring immediate friction-free usability
+        # Generic citizen session if no explicit token passed
         return UserResponse(
-            id="demo_user_001",
-            name="Rahul Sharma",
-            mobile="9876543210",
-            email="rahul.sharma@example.com",
+            id="citizen_session",
+            name="Citizen",
+            mobile="9000000000",
+            email=None,
             preferred_language="English",
             created_at=datetime.utcnow()
         )

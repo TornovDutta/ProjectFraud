@@ -22,7 +22,7 @@ def main():
     print("Simulating end-to-end workflow for Indian citizens reporting financial cyber fraud.\n")
 
     # STEP 1: Emergency Check
-    print("🚨 [STEP 1] Emergency Check & Golden Hour Verification")
+    print("[STEP 1] Emergency Check & Golden Hour Verification")
     print("   Active financial cyber fraud helpline: 1930 (CFCFRMS 24x7)")
     print("   Official reporting portal: https://cybercrime.gov.in")
     print("   Status: Golden Hour protocol active. Inter-bank lien mechanism available.")

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, Linking, Platform } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, TextInput, Linking, Platform, Animated } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { api } from '../services/api';
 import { translations } from '../services/i18n';
@@ -12,6 +12,7 @@ export default function GovernmentHandoffScreen({ complaintId, language, onNavig
   const [currentStage, setCurrentStage] = useState('READY'); // READY, SUBMITTED, ACKNOWLEDGED
   const [copied, setCopied] = useState(false);
 
+  const bannerAnim = useRef(new Animated.Value(0)).current;
   const t = translations[language] || translations.English;
 
   useEffect(() => {
@@ -30,6 +31,13 @@ export default function GovernmentHandoffScreen({ complaintId, language, onNavig
     setAckResult(result);
     setCurrentStage('ACKNOWLEDGED');
     if (onAckLinked) onAckLinked(result.acknowledgement_number);
+
+    // Animate banner appearance
+    Animated.spring(bannerAnim, {
+      toValue: 1,
+      friction: 6,
+      useNativeDriver: true
+    }).start();
   };
 
   const handleLinkManualAck = async () => {
@@ -38,16 +46,21 @@ export default function GovernmentHandoffScreen({ complaintId, language, onNavig
     setCurrentStage('ACKNOWLEDGED');
     setAckResult({ acknowledgement_number: ackInput.trim() });
     if (onAckLinked) onAckLinked(ackInput.trim());
+
+    Animated.spring(bannerAnim, {
+      toValue: 1,
+      friction: 6,
+      useNativeDriver: true
+    }).start();
   };
 
   const copyPacket = () => {
     if (!submissionData) return;
     const text = `NATIONAL CYBER CRIME REPORTING PORTAL DETAILS:
-Category: ${submissionData.prefilled_fields.category}
-Sub-Category: ${submissionData.prefilled_fields.sub_category}
-Amount: INR ${submissionData.prefilled_fields.loss_amount}
-Transaction UTR: ${submissionData.prefilled_fields.utr_or_txn_id}
-Incident Narrative: Attached in petition.`;
+Category: ${submissionData.prefilled_fields.category || 'Financial Fraud'}
+Sub-Category: ${submissionData.prefilled_fields.sub_category || 'Financial Cyber Fraud'}
+Amount: INR ${submissionData.prefilled_fields.loss_amount || ''}
+Transaction UTR: ${submissionData.prefilled_fields.utr_or_txn_id || ''}`;
     if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard) {
       navigator.clipboard.writeText(text);
     }
@@ -89,22 +102,32 @@ Incident Narrative: Attached in petition.`;
         </View>
       </View>
 
-      {/* Success Banner if Acknowledged */}
+      {/* Animated Success Banner if Acknowledged */}
       {ackResult && (
-        <View style={styles.successBanner}>
+        <Animated.View
+          style={[
+            styles.successBanner,
+            {
+              transform: [{ scale: bannerAnim }],
+              opacity: bannerAnim
+            }
+          ]}
+        >
           <MaterialIcons name="verified" size={28} color="#059669" />
           <View style={{ flex: 1 }}>
             <Text style={styles.successTitle}>Officially Acknowledged by Government</Text>
             <Text style={styles.successAck}>Ack No: {ackResult.acknowledgement_number}</Text>
-            <Text style={styles.successSub}>1930 / I4C Bank Freeze alert has been dispatched to recipient bank.</Text>
+            <Text style={styles.successSub}>1930 / I4C Bank Freeze alert dispatched to recipient bank.</Text>
           </View>
           <TouchableOpacity
             style={styles.trackNowBtn}
             onPress={() => onNavigate('tracking')}
+            activeOpacity={0.8}
           >
-            <Text style={styles.trackNowText}>Track →</Text>
+            <Text style={styles.trackNowText}>Track</Text>
+            <MaterialIcons name="arrow-forward" size={14} color="#FFFFFF" />
           </TouchableOpacity>
-        </View>
+        </Animated.View>
       )}
 
       {/* Option 1: User-Assisted Official Submission */}
@@ -117,7 +140,7 @@ Incident Narrative: Attached in petition.`;
           </View>
         </View>
 
-        {submissionData?.checklist.map((step) => (
+        {submissionData?.checklist?.map((step) => (
           <View key={step.step} style={styles.stepItem}>
             <View style={styles.stepNumberBadge}>
               <Text style={styles.stepNumberText}>{step.step}</Text>
@@ -136,7 +159,7 @@ Incident Narrative: Attached in petition.`;
             activeOpacity={0.8}
           >
             <MaterialIcons name="content-copy" size={16} color="#2563EB" />
-            <Text style={styles.copyPacketText}>{copied ? "Copied!" : "Copy Portal Fields"}</Text>
+            <Text style={styles.copyPacketText}>{copied ? "Copied" : "Copy Fields"}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -145,17 +168,17 @@ Incident Narrative: Attached in petition.`;
             activeOpacity={0.85}
           >
             <MaterialIcons name="open-in-new" size={16} color="#FFFFFF" />
-            <Text style={styles.openPortalText}>Open cybercrime.gov.in</Text>
+            <Text style={styles.openPortalText}>cybercrime.gov.in</Text>
           </TouchableOpacity>
         </View>
 
         {/* Enter Ack Number after manual submission */}
         <View style={styles.manualAckBox}>
-          <Text style={styles.manualAckLabel}>Got your Acknowledgement Number from the portal?</Text>
+          <Text style={styles.manualAckLabel}>Received Acknowledgement Number from the portal?</Text>
           <View style={styles.manualAckInputRow}>
             <TextInput
               style={styles.manualAckInput}
-              placeholder="e.g. 20261184920193"
+              placeholder="e.g. 14-digit Acknowledgement Number"
               value={ackInput}
               onChangeText={setAckInput}
             />
@@ -163,6 +186,7 @@ Incident Narrative: Attached in petition.`;
               style={[styles.linkBtn, !ackInput.trim() && styles.linkBtnDisabled]}
               onPress={handleLinkManualAck}
               disabled={!ackInput.trim()}
+              activeOpacity={0.8}
             >
               <Text style={styles.linkBtnText}>Link Ack</Text>
             </TouchableOpacity>
@@ -175,7 +199,7 @@ Incident Narrative: Attached in petition.`;
         <View style={styles.cardHeader}>
           <MaterialIcons name="api" size={22} color="#059669" />
           <View style={{ flex: 1 }}>
-            <Text style={styles.cardTitle}>Option B: Authorized Government API Mode</Text>
+            <Text style={styles.cardTitle}>Option B: Authorized Government API Gateway</Text>
             <Text style={styles.cardSubtitle}>Direct submission via official gateway partnership (Simulation / Live)</Text>
           </View>
         </View>
@@ -192,7 +216,7 @@ Incident Narrative: Attached in petition.`;
         >
           <MaterialIcons name="send" size={18} color="#FFFFFF" />
           <Text style={styles.simulateApiText}>
-            {isSubmittingApi ? "Submitting to Gateway..." : "Submit via Authorized API Gateway (Simulate)"}
+            {isSubmittingApi ? "Submitting to Gateway..." : "Submit via Authorized API Gateway (Simulation)"}
           </Text>
         </TouchableOpacity>
       </View>
@@ -212,7 +236,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingTop: 12,
     paddingBottom: 10,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
@@ -313,7 +337,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#059669',
     paddingVertical: 8,
     paddingHorizontal: 12,
-    borderRadius: 8
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4
   },
   trackNowText: {
     color: '#FFFFFF',

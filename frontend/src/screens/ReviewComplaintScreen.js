@@ -1,29 +1,39 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, ScrollView, TextInput, TouchableOpacity, Alert, Platform } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { StyleSheet, Text, View, ScrollView, TextInput, TouchableOpacity, Platform, Animated } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { api } from '../services/api';
 import { translations } from '../services/i18n';
 
 export default function ReviewComplaintScreen({ complaintId, initialData, language, onNavigate }) {
+  // Real user state only, no hardcoded sample values
   const [formData, setFormData] = useState({
-    fraud_amount: initialData?.fraud_amount ? String(initialData.fraud_amount) : '15000',
-    payment_method: initialData?.payment_method || 'UPI',
+    fraud_amount: initialData?.fraud_amount ? String(initialData.fraud_amount) : '',
+    payment_method: initialData?.payment_method || '',
     transaction_id: initialData?.transaction_id || '',
     incident_date: initialData?.incident_date || new Date().toISOString().split('T')[0],
     suspect_phone: initialData?.suspect_phone || '',
     suspect_upi_id: initialData?.suspect_upi_id || '',
-    incident_description: initialData?.incident_description || 'Unauthorized financial deduction via deceptive call.'
+    incident_description: initialData?.incident_description || ''
   });
 
   const [narrative, setNarrative] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [copySuccess, setCopySuccess] = useState(false);
 
+  const fadeAnim = useRef(new Animated.Value(0)).current;
   const t = translations[language] || translations.English;
 
   useEffect(() => {
-    handleGenerateNarrative();
-  }, []);
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 350,
+      useNativeDriver: true
+    }).start();
+
+    if (complaintId) {
+      handleGenerateNarrative();
+    }
+  }, [complaintId]);
 
   const handleGenerateNarrative = async () => {
     setIsGenerating(true);
@@ -53,114 +63,121 @@ export default function ReviewComplaintScreen({ complaintId, initialData, langua
         </View>
       </View>
 
-      {/* Editable Fields Card */}
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>Structured Complaint Fields</Text>
-        <Text style={styles.cardSubtitle}>You can correct any values before official filing.</Text>
+      <Animated.View style={{ opacity: fadeAnim }}>
+        {/* Editable Fields Card */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Structured Complaint Fields</Text>
+          <Text style={styles.cardSubtitle}>Confirm or correct values before official submission.</Text>
 
-        <View style={styles.fieldGroup}>
-          <Text style={styles.fieldLabel}>{t.fraudAmount} (₹)</Text>
-          <TextInput
-            style={styles.input}
-            keyboardType="numeric"
-            value={formData.fraud_amount}
-            onChangeText={(val) => setFormData({ ...formData, fraud_amount: val })}
-          />
-        </View>
-
-        <View style={styles.fieldGroup}>
-          <Text style={styles.fieldLabel}>{t.paymentMethod}</Text>
-          <TextInput
-            style={styles.input}
-            value={formData.payment_method}
-            onChangeText={(val) => setFormData({ ...formData, payment_method: val })}
-          />
-        </View>
-
-        <View style={styles.fieldGroup}>
-          <Text style={styles.fieldLabel}>{t.transactionId} (12-digit UTR)</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="e.g. 987654321012"
-            value={formData.transaction_id}
-            onChangeText={(val) => setFormData({ ...formData, transaction_id: val })}
-          />
-        </View>
-
-        <View style={styles.fieldGroup}>
-          <Text style={styles.fieldLabel}>{t.incidentDate}</Text>
-          <TextInput
-            style={styles.input}
-            value={formData.incident_date}
-            onChangeText={(val) => setFormData({ ...formData, incident_date: val })}
-          />
-        </View>
-
-        <View style={styles.fieldGroup}>
-          <Text style={styles.fieldLabel}>{t.suspectPhone}</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="10-digit mobile if known"
-            value={formData.suspect_phone}
-            onChangeText={(val) => setFormData({ ...formData, suspect_phone: val })}
-          />
-        </View>
-
-        <View style={styles.fieldGroup}>
-          <Text style={styles.fieldLabel}>Incident Narrative / Modus Operandi</Text>
-          <TextInput
-            style={[styles.input, styles.textArea]}
-            multiline
-            numberOfLines={3}
-            value={formData.incident_description}
-            onChangeText={(val) => setFormData({ ...formData, incident_description: val })}
-          />
-        </View>
-      </View>
-
-      {/* Evidence Attach Card */}
-      <TouchableOpacity
-        style={styles.evidenceButton}
-        onPress={() => onNavigate('evidence')}
-        activeOpacity={0.8}
-      >
-        <MaterialIcons name="attachment" size={20} color="#2563EB" />
-        <View style={{ flex: 1 }}>
-          <Text style={styles.evidenceTitle}>Attach Payment Screenshots / Receipts</Text>
-          <Text style={styles.evidenceSubtitle}>AI extracts UTR and amounts automatically from receipts</Text>
-        </View>
-        <MaterialIcons name="chevron-right" size={22} color="#94A3B8" />
-      </TouchableOpacity>
-
-      {/* Formal Narrative Generated Preview */}
-      <View style={styles.narrativeCard}>
-        <View style={styles.narrativeHeader}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <MaterialIcons name="description" size={18} color="#059669" />
-            <Text style={styles.narrativeTitle}>Official Legal Petition Preview</Text>
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>{t.fraudAmount} (INR)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. 15000"
+              keyboardType="numeric"
+              value={formData.fraud_amount}
+              onChangeText={(val) => setFormData({ ...formData, fraud_amount: val })}
+            />
           </View>
-          <TouchableOpacity style={styles.copyBtn} onPress={copyToClipboard}>
-            <MaterialIcons name={copySuccess ? "done" : "content-copy"} size={16} color="#2563EB" />
-            <Text style={styles.copyBtnText}>{copySuccess ? t.copied : "Copy"}</Text>
-          </TouchableOpacity>
+
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>{t.paymentMethod}</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. UPI, Debit Card, Net Banking"
+              value={formData.payment_method}
+              onChangeText={(val) => setFormData({ ...formData, payment_method: val })}
+            />
+          </View>
+
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>{t.transactionId} (12-digit UTR)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="e.g. 12-digit UTR number"
+              value={formData.transaction_id}
+              onChangeText={(val) => setFormData({ ...formData, transaction_id: val })}
+            />
+          </View>
+
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>{t.incidentDate}</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="YYYY-MM-DD"
+              value={formData.incident_date}
+              onChangeText={(val) => setFormData({ ...formData, incident_date: val })}
+            />
+          </View>
+
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>{t.suspectPhone}</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="10-digit mobile if known"
+              value={formData.suspect_phone}
+              onChangeText={(val) => setFormData({ ...formData, suspect_phone: val })}
+            />
+          </View>
+
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>Incident Narrative / Modus Operandi</Text>
+            <TextInput
+              style={[styles.input, styles.textArea]}
+              placeholder="Explain how the incident took place..."
+              multiline
+              numberOfLines={3}
+              value={formData.incident_description}
+              onChangeText={(val) => setFormData({ ...formData, incident_description: val })}
+            />
+          </View>
         </View>
 
-        <ScrollView style={styles.narrativeBox} nestedScrollEnabled>
-          <Text style={styles.narrativeText}>
-            {narrative || "Generating official legal petition narrative with statutory sections..."}
-          </Text>
-        </ScrollView>
-      </View>
+        {/* Evidence Attach Card */}
+        <TouchableOpacity
+          style={styles.evidenceButton}
+          onPress={() => onNavigate('evidence')}
+          activeOpacity={0.8}
+        >
+          <MaterialIcons name="attachment" size={20} color="#2563EB" />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.evidenceTitle}>Attach Payment Screenshots / Receipts</Text>
+            <Text style={styles.evidenceSubtitle}>AI extracts UTR and amounts automatically from receipts</Text>
+          </View>
+          <MaterialIcons name="chevron-right" size={22} color="#94A3B8" />
+        </TouchableOpacity>
 
-      {/* Primary Next Action */}
-      <TouchableOpacity
-        style={styles.submitButton}
-        onPress={() => onNavigate('handoff')}
-        activeOpacity={0.85}
-      >
-        <MaterialIcons name="cloud-upload" size={22} color="#FFFFFF" />
-        <Text style={styles.submitButtonText}>{t.proceedToSubmission} →</Text>
-      </TouchableOpacity>
+        {/* Formal Legal Narrative Generated Preview */}
+        <View style={styles.narrativeCard}>
+          <View style={styles.narrativeHeader}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <MaterialIcons name="description" size={18} color="#059669" />
+              <Text style={styles.narrativeTitle}>Official Legal Petition Preview</Text>
+            </View>
+            <TouchableOpacity style={styles.copyBtn} onPress={copyToClipboard} activeOpacity={0.7}>
+              <MaterialIcons name={copySuccess ? "done" : "content-copy"} size={16} color="#2563EB" />
+              <Text style={styles.copyBtnText}>{copySuccess ? t.copied : "Copy"}</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.narrativeBox} nestedScrollEnabled>
+            <Text style={styles.narrativeText}>
+              {narrative || "Generating official legal petition narrative with statutory sections..."}
+            </Text>
+          </ScrollView>
+        </View>
+
+        {/* Submit to Government Portal CTA */}
+        <TouchableOpacity
+          style={styles.submitButton}
+          onPress={() => onNavigate('handoff')}
+          activeOpacity={0.85}
+        >
+          <MaterialIcons name="cloud-upload" size={22} color="#FFFFFF" />
+          <Text style={styles.submitButtonText}>{t.proceedToSubmission}</Text>
+          <MaterialIcons name="arrow-forward" size={18} color="#FFFFFF" />
+        </TouchableOpacity>
+      </Animated.View>
     </ScrollView>
   );
 }
@@ -177,7 +194,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingTop: 12,
     paddingBottom: 10,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,

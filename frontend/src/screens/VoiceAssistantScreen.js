@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, ScrollView, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, Animated } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import ExtractionSummaryCard from '../components/ExtractionSummaryCard';
 import VoiceRecorder from '../components/VoiceRecorder';
@@ -19,11 +19,33 @@ export default function VoiceAssistantScreen({ language, onNavigate, onComplaint
   const [quickOptions, setQuickOptions] = useState(null);
 
   const scrollViewRef = useRef();
+  const readyButtonPulse = useRef(new Animated.Value(1)).current;
   const t = translations[language] || translations.English;
 
   useEffect(() => {
     initChat();
   }, [language]);
+
+  useEffect(() => {
+    if (isCompleted || extractedFields.fraud_amount) {
+      const loop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(readyButtonPulse, {
+            toValue: 1.04,
+            duration: 800,
+            useNativeDriver: true
+          }),
+          Animated.timing(readyButtonPulse, {
+            toValue: 1,
+            duration: 800,
+            useNativeDriver: true
+          })
+        ])
+      );
+      loop.start();
+      return () => loop.stop();
+    }
+  }, [isCompleted, extractedFields.fraud_amount]);
 
   const initChat = async () => {
     setIsProcessing(true);
@@ -99,10 +121,10 @@ export default function VoiceAssistantScreen({ language, onNavigate, onComplaint
         language={language}
       />
 
-      {/* Security Warning Banner if PIN/OTP was detected and redacted */}
+      {/* Security Alert Banner without emoji */}
       {securityWarning ? (
         <View style={styles.alertBanner}>
-          <MaterialIcons name="shield" size={18} color="#DC2626" />
+          <MaterialIcons name="security" size={18} color="#DC2626" />
           <Text style={styles.alertText}>{securityWarning}</Text>
         </View>
       ) : null}
@@ -144,7 +166,7 @@ export default function VoiceAssistantScreen({ language, onNavigate, onComplaint
         {isProcessing && (
           <View style={styles.loadingRow}>
             <ActivityIndicator size="small" color="#2563EB" />
-            <Text style={styles.loadingText}>CyberSathi is analyzing...</Text>
+            <Text style={styles.loadingText}>CyberSathi is analyzing response...</Text>
           </View>
         )}
 
@@ -156,6 +178,7 @@ export default function VoiceAssistantScreen({ language, onNavigate, onComplaint
                 key={opt}
                 style={styles.quickOptionChip}
                 onPress={() => handleSendMessage(opt)}
+                activeOpacity={0.7}
               >
                 <Text style={styles.quickOptionText}>{opt}</Text>
               </TouchableOpacity>
@@ -164,17 +187,20 @@ export default function VoiceAssistantScreen({ language, onNavigate, onComplaint
         )}
       </ScrollView>
 
-      {/* Ready Action Bar */}
+      {/* Animated Ready Action Bar */}
       {(isCompleted || extractedFields.fraud_amount) && (
         <View style={styles.readyBar}>
-          <TouchableOpacity
-            style={styles.readyButton}
-            onPress={handleProceedToReview}
-            activeOpacity={0.85}
-          >
-            <MaterialIcons name="fact-check" size={20} color="#FFFFFF" />
-            <Text style={styles.readyButtonText}>{t.reviewComplaint} →</Text>
-          </TouchableOpacity>
+          <Animated.View style={{ transform: [{ scale: readyButtonPulse }] }}>
+            <TouchableOpacity
+              style={styles.readyButton}
+              onPress={handleProceedToReview}
+              activeOpacity={0.85}
+            >
+              <MaterialIcons name="fact-check" size={20} color="#FFFFFF" />
+              <Text style={styles.readyButtonText}>{t.reviewComplaint}</Text>
+              <MaterialIcons name="arrow-forward" size={18} color="#FFFFFF" />
+            </TouchableOpacity>
+          </Animated.View>
         </View>
       )}
 
@@ -189,7 +215,7 @@ export default function VoiceAssistantScreen({ language, onNavigate, onComplaint
         <View style={styles.textInputRow}>
           <TextInput
             style={styles.textInput}
-            placeholder="Or type what happened here..."
+            placeholder="Type incident details..."
             placeholderTextColor="#94A3B8"
             value={inputText}
             onChangeText={setInputText}
@@ -217,7 +243,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingTop: 12,
     paddingBottom: 10,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,

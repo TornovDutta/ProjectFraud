@@ -1,36 +1,55 @@
-import React, { useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator, TextInput, Animated } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { translations } from '../services/i18n';
 
 export default function EvidenceUploadScreen({ complaintId, language, onNavigate, onEvidenceExtracted }) {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [extractedEvidence, setExtractedEvidence] = useState(null);
+  const [ocrInput, setOcrInput] = useState('');
+  const fadeResult = useRef(new Animated.Value(0)).current;
+
   const t = translations[language] || translations.English;
 
-  const handleSimulateUpload = (type) => {
+  const handleParseEvidence = (text) => {
+    const raw = text || ocrInput;
+    if (!raw.trim()) return;
+
     setIsAnalyzing(true);
     setTimeout(() => {
       setIsAnalyzing(false);
-      let data = {
-        utr_number: '987654321012',
-        amount: 15000,
-        beneficiary_vpa: 'scammer.fraud@paytm',
-        bank_name: 'State Bank of India',
+
+      // Real regex extraction based strictly on input provided
+      const utrMatch = raw.match(/\b([0-9]{12})\b/);
+      const amtMatch = raw.match(/(?:₹|rs\.?|inr)?\s*([0-9]+(?:,[0-9]+)*(?:\.[0-9]{1,2})?)/i);
+      const vpaMatch = raw.match(/\b([a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64})\b/);
+      
+      let bank = "Bank";
+      const banks = ["SBI", "HDFC", "ICICI", "AXIS", "PNB", "KOTAK", "BOB", "CANARA"];
+      for (const b of banks) {
+        if (raw.toUpperCase().includes(b)) {
+          bank = b;
+          break;
+        }
+      }
+
+      const data = {
+        utr_number: utrMatch ? utrMatch[1] : null,
+        amount: amtMatch ? parseFloat(amtMatch[1].replace(/,/g, '')) : null,
+        beneficiary_vpa: vpaMatch ? vpaMatch[1] : null,
+        bank_name: bank,
         timestamp: new Date().toISOString()
       };
-      if (type === 'sms') {
-        data = {
-          utr_number: '234567890123',
-          amount: 25000,
-          beneficiary_vpa: 'fraudster@okhdfcbank',
-          bank_name: 'HDFC Bank',
-          timestamp: new Date().toISOString()
-        };
-      }
+
       setExtractedEvidence(data);
       if (onEvidenceExtracted) onEvidenceExtracted(data);
-    }, 1200);
+
+      Animated.timing(fadeResult, {
+        toValue: 1,
+        duration: 400,
+        useNativeDriver: true
+      }).start();
+    }, 900);
   };
 
   return (
@@ -41,37 +60,38 @@ export default function EvidenceUploadScreen({ complaintId, language, onNavigate
         </TouchableOpacity>
         <View>
           <Text style={styles.headerTitle}>{t.evidenceUpload}</Text>
-          <Text style={styles.headerSub}>AI-Powered Receipt & Screenshot Analysis</Text>
+          <Text style={styles.headerSub}>AI-Powered Receipt and Screenshot Analysis</Text>
         </View>
       </View>
 
       {/* Upload Selector Cards */}
       <View style={styles.uploadOptions}>
-        <TouchableOpacity
-          style={styles.uploadCard}
-          onPress={() => handleSimulateUpload('upi')}
-          disabled={isAnalyzing}
-          activeOpacity={0.8}
-        >
+        <View style={styles.uploadCard}>
           <View style={styles.iconCircle}>
-            <MaterialIcons name="qr-code" size={28} color="#2563EB" />
+            <MaterialIcons name="document-scanner" size={28} color="#2563EB" />
           </View>
-          <Text style={styles.uploadCardTitle}>UPI App Payment Screenshot</Text>
-          <Text style={styles.uploadCardDesc}>GPay, PhonePe, Paytm, BHIM receipt</Text>
-        </TouchableOpacity>
+          <Text style={styles.uploadCardTitle}>Payment Screenshot or SMS Text</Text>
+          <Text style={styles.uploadCardDesc}>Paste or enter the text from your UPI app receipt or bank debit SMS:</Text>
 
-        <TouchableOpacity
-          style={styles.uploadCard}
-          onPress={() => handleSimulateUpload('sms')}
-          disabled={isAnalyzing}
-          activeOpacity={0.8}
-        >
-          <View style={[styles.iconCircle, { backgroundColor: '#EFF6FF' }]}>
-            <MaterialIcons name="sms" size={28} color="#059669" />
-          </View>
-          <Text style={styles.uploadCardTitle}>Bank Debit Alert SMS</Text>
-          <Text style={styles.uploadCardDesc}>SMS showing deduction & UTR reference</Text>
-        </TouchableOpacity>
+          <TextInput
+            style={styles.textOcrInput}
+            multiline
+            numberOfLines={3}
+            placeholder="e.g. Paid to scammer@okhdfcbank. Amount Rs 15000. UPI Ref 987654321012..."
+            value={ocrInput}
+            onChangeText={setOcrInput}
+          />
+
+          <TouchableOpacity
+            style={[styles.analyzeBtn, !ocrInput.trim() && styles.analyzeBtnDisabled]}
+            onPress={() => handleParseEvidence(ocrInput)}
+            disabled={!ocrInput.trim() || isAnalyzing}
+            activeOpacity={0.8}
+          >
+            <MaterialIcons name="auto-awesome" size={18} color="#FFFFFF" />
+            <Text style={styles.analyzeBtnText}>Extract Transaction Data</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Loading state */}
@@ -79,13 +99,13 @@ export default function EvidenceUploadScreen({ complaintId, language, onNavigate
         <View style={styles.loadingBox}>
           <ActivityIndicator size="large" color="#2563EB" />
           <Text style={styles.loadingText}>{t.aiOcrExtracting}</Text>
-          <Text style={styles.loadingSub}>Scanning 12-digit UTR, amount, and recipient UPI handle...</Text>
+          <Text style={styles.loadingSub}>Scanning for 12-digit UTR, amount, and recipient UPI ID...</Text>
         </View>
       )}
 
       {/* Extracted Evidence Details */}
       {extractedEvidence && !isAnalyzing && (
-        <View style={styles.resultCard}>
+        <Animated.View style={[styles.resultCard, { opacity: fadeResult }]}>
           <View style={styles.resultHeader}>
             <MaterialIcons name="check-circle" size={20} color="#059669" />
             <Text style={styles.resultTitle}>{t.ocrSuccess}</Text>
@@ -93,17 +113,19 @@ export default function EvidenceUploadScreen({ complaintId, language, onNavigate
 
           <View style={styles.dataRow}>
             <Text style={styles.dataLabel}>Extracted UTR / Ref:</Text>
-            <Text style={styles.dataValueBold}>{extractedEvidence.utr_number}</Text>
+            <Text style={styles.dataValueBold}>{extractedEvidence.utr_number || "Not detected in text"}</Text>
           </View>
 
           <View style={styles.dataRow}>
             <Text style={styles.dataLabel}>Disputed Amount:</Text>
-            <Text style={styles.dataValueBold}>₹{extractedEvidence.amount.toLocaleString('en-IN')}</Text>
+            <Text style={styles.dataValueBold}>
+              {extractedEvidence.amount ? `INR ${extractedEvidence.amount.toLocaleString('en-IN')}` : "Not detected"}
+            </Text>
           </View>
 
           <View style={styles.dataRow}>
             <Text style={styles.dataLabel}>Beneficiary VPA / UPI ID:</Text>
-            <Text style={styles.dataValue}>{extractedEvidence.beneficiary_vpa}</Text>
+            <Text style={styles.dataValue}>{extractedEvidence.beneficiary_vpa || "Not detected"}</Text>
           </View>
 
           <View style={styles.dataRow}>
@@ -117,9 +139,10 @@ export default function EvidenceUploadScreen({ complaintId, language, onNavigate
             activeOpacity={0.85}
           >
             <MaterialIcons name="done-all" size={18} color="#FFFFFF" />
-            <Text style={styles.applyBtnText}>Apply to Complaint Draft →</Text>
+            <Text style={styles.applyBtnText}>Apply to Complaint Draft</Text>
+            <MaterialIcons name="arrow-forward" size={16} color="#FFFFFF" />
           </TouchableOpacity>
-        </View>
+        </Animated.View>
       )}
     </ScrollView>
   );
@@ -137,7 +160,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingTop: 12,
     paddingBottom: 10,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
@@ -154,16 +177,14 @@ const styles = StyleSheet.create({
     color: '#64748B'
   },
   uploadOptions: {
-    padding: 16,
-    gap: 12
+    padding: 16
   },
   uploadCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 14,
     padding: 18,
     borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    borderStyle: 'dashed',
+    borderColor: '#CBD5E1',
     alignItems: 'center'
   },
   iconCircle: {
@@ -183,7 +204,41 @@ const styles = StyleSheet.create({
   uploadCardDesc: {
     fontSize: 11,
     color: '#64748B',
-    marginTop: 2
+    marginTop: 2,
+    textAlign: 'center'
+  },
+  textOcrInput: {
+    width: '100%',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 12,
+    color: '#0F172A',
+    minHeight: 64,
+    textAlignVertical: 'top',
+    marginTop: 12
+  },
+  analyzeBtn: {
+    width: '100%',
+    backgroundColor: '#2563EB',
+    borderRadius: 8,
+    paddingVertical: 11,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 12
+  },
+  analyzeBtnDisabled: {
+    backgroundColor: '#94A3B8'
+  },
+  analyzeBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 13
   },
   loadingBox: {
     alignItems: 'center',

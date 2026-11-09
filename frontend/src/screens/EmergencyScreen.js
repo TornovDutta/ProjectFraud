@@ -1,15 +1,33 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Linking } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Linking, Animated } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { api } from '../services/api';
 import { translations } from '../services/i18n';
 
 export default function EmergencyScreen({ language, onNavigate }) {
   const [emergencyData, setEmergencyData] = useState(null);
+  const pulseBadge = useRef(new Animated.Value(1)).current;
   const t = translations[language] || translations.English;
 
   useEffect(() => {
     loadInfo();
+
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseBadge, {
+          toValue: 1.1,
+          duration: 800,
+          useNativeDriver: true
+        }),
+        Animated.timing(pulseBadge, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true
+        })
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
   }, []);
 
   const loadInfo = async () => {
@@ -38,9 +56,9 @@ export default function EmergencyScreen({ language, onNavigate }) {
 
       {/* Hero 1930 Call Action */}
       <View style={styles.heroCard}>
-        <View style={styles.heroBadge}>
+        <Animated.View style={[styles.heroBadge, { transform: [{ scale: pulseBadge }] }]}>
           <MaterialIcons name="phone-in-talk" size={32} color="#FFFFFF" />
-        </View>
+        </Animated.View>
         <Text style={styles.heroNumber}>1930</Text>
         <Text style={styles.heroTitle}>National Cyber Financial Fraud Helpline</Text>
         <Text style={styles.heroSubtitle}>
@@ -73,7 +91,7 @@ export default function EmergencyScreen({ language, onNavigate }) {
             <View style={styles.stepNum}><Text style={styles.stepNumText}>2</Text></View>
             <View style={{ flex: 1 }}>
               <Text style={styles.stepTitleText}>Block UPI / NetBanking Channel</Text>
-              <Text style={styles.stepDescText}>Call your issuing bank's toll-free line below to block your netbanking and card immediately.</Text>
+              <Text style={styles.stepDescText}>Call your issuing bank toll-free line below to block netbanking and cards immediately.</Text>
             </View>
           </View>
 
@@ -104,6 +122,7 @@ export default function EmergencyScreen({ language, onNavigate }) {
             <TouchableOpacity
               style={styles.bankCallBtn}
               onPress={() => dialNumber(bank.phone)}
+              activeOpacity={0.8}
             >
               <MaterialIcons name="call" size={16} color="#FFFFFF" />
             </TouchableOpacity>
@@ -126,7 +145,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingTop: 12,
     paddingBottom: 10,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,

@@ -56,23 +56,36 @@ export const audioService = {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (SpeechRecognition) {
         const recognition = new SpeechRecognition();
-        recognition.continuous = false;
-        recognition.interimResults = false;
+        recognition.continuous = true;
+        recognition.interimResults = true;
 
         let langCode = 'en-IN';
         if (language === 'Hindi') langCode = 'hi-IN';
         if (language === 'Bengali') langCode = 'bn-IN';
         recognition.lang = langCode;
 
+        let accumulated = '';
         recognition.onresult = (event) => {
-          const transcript = event.results[0][0].transcript;
-          if (onResult) onResult(transcript);
+          let interim = '';
+          for (let i = 0; i < event.results.length; ++i) {
+            const res = event.results[i];
+            if (res.isFinal) {
+              accumulated += res[0].transcript + ' ';
+            } else {
+              interim += res[0].transcript;
+            }
+          }
+          const textSoFar = (accumulated + ' ' + interim).trim();
+          if (onResult && textSoFar) {
+            onResult(textSoFar);
+          }
         };
         recognition.onerror = (event) => {
           if (onError) onError(event.error);
         };
         recognition.onend = () => {
-          if (onEnd) onEnd();
+          const finalText = accumulated.trim();
+          if (onEnd) onEnd(finalText);
         };
         return recognition;
       }

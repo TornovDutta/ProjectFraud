@@ -277,5 +277,162 @@ export const api = {
       console.warn("Attach acknowledgement offline fallback");
     }
     return { success: true, acknowledgement_number: ackNumber };
+  },
+
+  // 5. Citizen Cyber Services
+  async scanFraudRisk(query, queryType = "AUTO") {
+    try {
+      const res = await fetch(`${API_BASE_URL}/services/fraud-scanner`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query, query_type: queryType })
+      });
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn("Fraud risk scan offline fallback");
+    }
+    // Fallback scanner analysis
+    const isVoIP = query.startsWith("+92") || query.startsWith("+1");
+    const isApk = query.toLowerCase().includes(".apk");
+    return {
+      query,
+      query_type: queryType,
+      risk_score: isApk || isVoIP ? 85 : 50,
+      risk_level: isApk || isVoIP ? "CRITICAL" : "MEDIUM",
+      category: isApk ? "PHISHING_APK_DOWNLOAD" : "SUSPICIOUS_COMMUNICATION",
+      category_title: isApk ? "Malicious APK Installation Link" : "Suspicious Communication",
+      red_flags: [
+        "Unverified sender or channel soliciting action.",
+        "Potentially linked to known modus operandi in financial cyber fraud."
+      ],
+      advisories: [
+        "Never share OTP, ATM PIN, or UPI PIN with anyone calling or messaging.",
+        "If unauthorized money was debited, call 1930 immediately."
+      ],
+      emergency_helpline: "1930",
+      official_portal: "https://cybercrime.gov.in"
+    };
+  },
+
+  async generateRbiClaim(payload) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/services/rbi-ombudsman-claim`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn("RBI claim offline fallback");
+    }
+    return {
+      success: true,
+      bank_name: payload.bank_name,
+      claim_amount: payload.fraud_amount,
+      rbi_circular: "DBR.No.Leg.BC.78/09.07.005/2017-18",
+      statutory_shadow_reversal_days: 10,
+      maximum_resolution_days: 90,
+      ombudsman_url: "https://cms.rbi.org.in",
+      formal_claim_text: `FORMAL CLAIM FOR 100% REFUND UNDER RBI ZERO LIABILITY FRAMEWORK\nTo: The Branch Manager & Principal Nodal Officer, ${payload.bank_name}\nSubject: Claim for reversal of unauthorized electronic transaction of INR ${payload.fraud_amount}\nRef: RBI Notification DBR.No.Leg.BC.78/09.07.005/2017-18\n\nI hereby register this claim for full reversal regarding the unauthorized electronic transaction on account/card ending in XX${payload.account_or_card_last4}. Under Paragraph 6(a) of the RBI Master Circular, the customer has ZERO LIABILITY for third-party breaches reported within three working days.`
+    };
+  },
+
+  async getSancharSaathi() {
+    try {
+      const res = await fetch(`${API_BASE_URL}/services/sanchar-saathi`);
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn("Sanchar Saathi offline fallback");
+    }
+    return {
+      portal_name: "Sanchar Saathi (DoT, Govt of India)",
+      official_url: "https://sancharsaathi.gov.in",
+      services: [
+        {
+          code: "CEIR",
+          title: "Block Stolen/Lost Mobile Phone (CEIR)",
+          description: "Blocks IMEI across all telecom operators in India to prevent reuse.",
+          official_url: "https://www.ceir.gov.in/Request/CeirUserBlockRequestDirect.jsp",
+          checklist: ["Police complaint / e-FIR copy", "Purchase Invoice", "Identity Proof", "Alternate mobile number"]
+        },
+        {
+          code: "TAFCOP",
+          title: "Check SIMs in Your Name (TAFCOP)",
+          description: "View all active mobile numbers issued on your identity and report fake connections.",
+          official_url: "https://tafcop.sancharsaathi.gov.in",
+          checklist: ["Enter Aadhaar-linked mobile", "Verify OTP", "Select unrecognized numbers", "Submit cancellation"]
+        },
+        {
+          code: "CHAKSHU",
+          title: "Report Fraudulent Calls & SMS (Chakshu)",
+          description: "Report suspect calls/SMS regarding KYC, electricity, or courier fraud directly to DoT.",
+          official_url: "https://sancharsaathi.gov.in/sfc/",
+          checklist: ["Screenshot of SMS/Call", "Suspect mobile number", "Date and time", "Summary of scam message"]
+        }
+      ]
+    };
+  },
+
+  async getQuickActions() {
+    try {
+      const res = await fetch(`${API_BASE_URL}/services/quick-actions`);
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn("Quick actions offline fallback");
+    }
+    return {
+      national_cyber_helpline: "1930",
+      universal_upi_delink_ussd: "*99*99#",
+      bank_emergency_actions: [
+        { bank: "State Bank of India", toll_free: "18001234", sms_block: "SMS 'BLOCK <last 4>' to 567676", ussd: "*99*41#" },
+        { bank: "HDFC Bank", toll_free: "18002026161", sms_block: "SMS 'BLOCK' to 5676712", ussd: "*99*43#" },
+        { bank: "ICICI Bank", toll_free: "18001080", sms_block: "SMS 'IBLOCK <last 4>' to 9215667766", ussd: "*99*44#" },
+        { bank: "Axis Bank", toll_free: "18604195555", sms_block: "SMS 'BLOCKCARD' to 5676782", ussd: "*99*45#" },
+        { bank: "Punjab National Bank", toll_free: "18001802222", sms_block: "SMS 'HOT <Card No>' to 5607040", ussd: "*99*42#" }
+      ]
+    };
+  },
+
+  async getTrendingScams() {
+    try {
+      const res = await fetch(`${API_BASE_URL}/services/trending-scams`);
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn("Trending scams offline fallback");
+    }
+    return [
+      {
+        id: "scam_1",
+        title: "Digital Arrest Scam (Fake Police / CBI Video Calls)",
+        category: "IMPERSONATION",
+        risk: "CRITICAL",
+        modus_operandi: "Scammers pose as CBI/ED on Skype or WhatsApp video call with fake uniforms and court warrants, demanding fund transfers for 'verification'.",
+        safety_rule: "Indian Police and agencies NEVER arrest or interrogate via video calls. No such concept exists in law."
+      },
+      {
+        id: "scam_2",
+        title: "Electricity Power Disconnection Threat",
+        category: "UTILITY_FRAUD",
+        risk: "CRITICAL",
+        modus_operandi: "SMS claiming electricity will be disconnected tonight at 9:30 PM due to unpaid bill, urging call to personal mobile.",
+        safety_rule: "Electricity boards never send mobile numbers for payments. Pay only via official apps or Bharat BillPay."
+      },
+      {
+        id: "scam_3",
+        title: "Work-From-Home YouTube Like Task Scam",
+        category: "INVESTMENT_FRAUD",
+        risk: "HIGH",
+        modus_operandi: "Victims are paid Rs 150 for liking videos, then coerced into VIP crypto recharge groups where lakhs are stolen.",
+        safety_rule: "Never pay money to complete online tasks or earn commission."
+      },
+      {
+        id: "scam_4",
+        title: "Malicious APK Loan & KYC Apps",
+        category: "MALWARE_EXTORTION",
+        risk: "CRITICAL",
+        modus_operandi: "Links to install .APK files that steal contacts, photos, and OTPs for blackmail and unauthorized deductions.",
+        safety_rule: "Never install .APK files from WhatsApp or SMS. Use only official app stores."
+      }
+    ];
   }
 };

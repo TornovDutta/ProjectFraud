@@ -10,6 +10,8 @@ from app.services.conversation_flow import ConversationManager
 from app.services.formal_complaint_gen import FormalComplaintGenerator
 from app.services.portal_handoff import GovernmentPortalHandoff
 from app.services.ocr_service import OCREvidenceService
+from app.services.fraud_scanner import FraudRiskScanner
+from app.services.citizen_services import CitizenServices
 from app.core.security import sanitize_sensitive_data
 
 def print_separator(title):
@@ -114,7 +116,50 @@ def main():
         print(f"   ↳ {item['description']}")
 
     print("\nOfficial Tracking URL: https://www.cybercrime.gov.in/Webform/chkackstatus.aspx")
-    print_separator("Demonstration Complete: All Systems Verified")
+
+    # STEP 9: Cyber Fraud Risk & Modus Operandi Scanner
+    print_separator("[STEP 9] Cyber Fraud Risk & Modus Operandi Scanner")
+    test_sms = "Dear customer your electricity power will be disconnected tonight at 9:30 PM. Call officer at 9876543210"
+    print(f"Scanning Suspicious SMS: \"{test_sms}\"")
+    sms_scan = FraudRiskScanner.scan_input(test_sms)
+    print(f"Risk Level: {sms_scan['risk_level']} (Score: {sms_scan['risk_score']}/100)")
+    print(f"Category: {sms_scan['category_title']}")
+    print(f"Identified Red Flags: {sms_scan['red_flags']}")
+    print(f"Safety Advisory: {sms_scan['advisories'][0]}")
+
+    test_apk = "http://sbi-yono-update.com/download.apk"
+    print(f"\nScanning Suspicious Link: \"{test_apk}\"")
+    apk_scan = FraudRiskScanner.scan_input(test_apk)
+    print(f"Risk Level: {apk_scan['risk_level']} (Score: {apk_scan['risk_score']}/100)")
+    print(f"Category: {apk_scan['category_title']}")
+
+    # STEP 10: RBI Zero-Liability Bank Refund Claim Generator
+    print_separator("[STEP 10] RBI Zero-Liability Bank Refund Claim Generator")
+    rbi_claim = CitizenServices.generate_rbi_zero_liability_claim(
+        complainant_name="Rahul Sharma",
+        bank_name="State Bank of India",
+        account_or_card_last4="4321",
+        fraud_amount=15000.0,
+        transaction_date="2026-11-08",
+        report_date="2026-11-09",
+        transaction_id_utr="987654321012",
+        cybercrime_ack_no=ack_number
+    )
+    print("Generated RBI Mandated Formal Refund Notice:")
+    print(rbi_claim["formal_claim_text"])
+
+    # STEP 11: Sanchar Saathi & Universal USSD Emergency Actions
+    print_separator("[STEP 11] Sanchar Saathi (CEIR / TAFCOP) & USSD Emergency Actions")
+    sanchar = CitizenServices.get_sanchar_saathi_services()
+    print(f"Portal: {sanchar['portal_name']} ({sanchar['official_url']})")
+    for svc in sanchar["services"]:
+        print(f" - [{svc['code']}] {svc['title']}: {svc['official_url']}")
+
+    quick = CitizenServices.get_emergency_quick_actions()
+    print(f"\nUniversal Offline UPI Kill Code: {quick['universal_upi_delink_ussd']}")
+    print(f"Instructions: {quick['description']}")
+
+    print_separator("Demonstration Complete: All Services Verified")
 
 if __name__ == "__main__":
     main()

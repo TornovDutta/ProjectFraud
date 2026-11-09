@@ -12,6 +12,7 @@ from app.api.complaints import router as complaints_router
 from app.api.evidence import router as evidence_router
 from app.api.tracking import router as tracking_router
 from app.api.emergency import router as emergency_router
+from app.api.services import router as services_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -53,6 +54,7 @@ app.include_router(complaints_router, prefix=settings.API_V1_STR)
 app.include_router(evidence_router, prefix=settings.API_V1_STR)
 app.include_router(tracking_router, prefix=settings.API_V1_STR)
 app.include_router(emergency_router, prefix=settings.API_V1_STR)
+app.include_router(services_router, prefix=settings.API_V1_STR)
 
 @app.get("/")
 async def root():

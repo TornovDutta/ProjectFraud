@@ -125,6 +125,69 @@ export default function HomeScreen({ language, onSelectLanguage, onNavigate }) {
         </TouchableOpacity>
       </Animated.View>
 
+      {/* Citizen Cyber Services Hub */}
+      <View style={styles.servicesHubSection}>
+        <View style={styles.hubHeaderRow}>
+          <View style={styles.hubHeaderLeft}>
+            <MaterialIcons name="shield" size={20} color="#1E3A8A" />
+            <Text style={styles.hubTitle}>{t.servicesTitle}</Text>
+          </View>
+          <TouchableOpacity onPress={() => onNavigate('services')}>
+            <Text style={styles.viewAllText}>View All</Text>
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.hubGrid}>
+          <TouchableOpacity
+            style={styles.hubCard}
+            onPress={() => onNavigate('services')}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.hubIconBg, { backgroundColor: '#EFF6FF' }]}>
+              <MaterialIcons name="radar" size={22} color="#2563EB" />
+            </View>
+            <Text style={styles.hubCardTitle}>Risk Scanner</Text>
+            <Text style={styles.hubCardDesc}>Scan phone, UPI, APK, SMS</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.hubCard}
+            onPress={() => onNavigate('services')}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.hubIconBg, { backgroundColor: '#F0FDF4' }]}>
+              <MaterialIcons name="account-balance" size={22} color="#059669" />
+            </View>
+            <Text style={styles.hubCardTitle}>RBI 100% Refund</Text>
+            <Text style={styles.hubCardDesc}>Zero-Liability claim letter</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.hubCard}
+            onPress={() => onNavigate('services')}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.hubIconBg, { backgroundColor: '#F5F3FF' }]}>
+              <MaterialIcons name="phonelink-lock" size={22} color="#7C3AED" />
+            </View>
+            <Text style={styles.hubCardTitle}>Sanchar Saathi</Text>
+            <Text style={styles.hubCardDesc}>Block stolen IMEI & SIMs</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.hubCard}
+            onPress={() => onNavigate('services')}
+            activeOpacity={0.8}
+          >
+            <View style={[styles.hubIconBg, { backgroundColor: '#FFF1F2' }]}>
+              <MaterialIcons name="dialpad" size={22} color="#BE123C" />
+            </View>
+            <Text style={styles.hubCardTitle}>*99*99# UPI Kill</Text>
+            <Text style={styles.hubCardDesc}>Offline emergency USSD</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
       {/* Official Government Portal Info Box */}
       <View style={styles.govtBox}>
         <View style={styles.govtHeader}>
@@ -302,6 +365,68 @@ const styles = StyleSheet.create({
     marginTop: 14,
     borderWidth: 1,
     borderColor: '#E2E8F0'
+  },
+  servicesHubSection: {
+    marginHorizontal: 16,
+    marginTop: 16
+  },
+  hubHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10
+  },
+  hubHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6
+  },
+  hubTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#0F172A'
+  },
+  viewAllText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#2563EB'
+  },
+  hubGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10
+  },
+  hubCard: {
+    width: '48%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
+    gap: 4
+  },
+  hubIconBg: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 4
+  },
+  hubCardTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1E293B'
+  },
+  hubCardDesc: {
+    fontSize: 11,
+    color: '#64748B',
+    lineHeight: 14
   },
   govtHeader: {
     flexDirection: 'row',

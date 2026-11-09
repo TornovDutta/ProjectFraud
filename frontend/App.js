@@ -11,6 +11,7 @@ import GovernmentHandoffScreen from './src/screens/GovernmentHandoffScreen';
 import EvidenceUploadScreen from './src/screens/EvidenceUploadScreen';
 import TrackingScreen from './src/screens/TrackingScreen';
 import EmergencyScreen from './src/screens/EmergencyScreen';
+import ServicesScreen from './src/screens/ServicesScreen';
 
 function MainApp() {
   const insets = useSafeAreaInsets();
@@ -109,6 +110,13 @@ function MainApp() {
               onNavigate={setCurrentScreen}
             />
           )}
+
+          {currentScreen === 'services' && (
+            <ServicesScreen
+              language={language}
+              onNavigate={setCurrentScreen}
+            />
+          )}
         </View>
 
         {/* Persistent Bottom Tab Bar with dynamic safe area inset */}
@@ -125,6 +133,21 @@ function MainApp() {
             />
             <Text style={[styles.tabLabel, currentScreen === 'home' && styles.tabLabelActive]}>
               Home
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.tabItem}
+            onPress={() => setCurrentScreen('services')}
+            activeOpacity={0.7}
+          >
+            <MaterialIcons
+              name="shield"
+              size={22}
+              color={currentScreen === 'services' ? '#2563EB' : '#94A3B8'}
+            />
+            <Text style={[styles.tabLabel, currentScreen === 'services' && styles.tabLabelActive]}>
+              Services
             </Text>
           </TouchableOpacity>
 

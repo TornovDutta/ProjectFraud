@@ -1,9 +1,8 @@
 import * as Speech from 'expo-speech';
-import { Audio } from 'expo-av';
 import { Platform } from 'react-native';
 
 export const audioService = {
-  // 1. Text-to-Speech (Speaks AI replies to user)
+  // 1. Text-to-Speech (Reads AI replies to user in Hindi / Bengali / English)
   async speak(text, language = 'English') {
     if (!text) return;
 
@@ -19,12 +18,16 @@ export const audioService = {
         utterance.rate = 0.95;
         window.speechSynthesis.speak(utterance);
       } else {
-        await Speech.stop();
-        Speech.speak(text, {
-          language: langCode,
-          pitch: 1.0,
-          rate: 0.95
-        });
+        try {
+          await Speech.stop();
+          Speech.speak(text, {
+            language: langCode,
+            pitch: 1.0,
+            rate: 0.95
+          });
+        } catch (speechErr) {
+          console.warn("Expo Speech error:", speechErr);
+        }
       }
     } catch (e) {
       console.warn("Speech synthesis error:", e);
@@ -36,71 +39,18 @@ export const audioService = {
       if (Platform.OS === 'web' && typeof window !== 'undefined' && 'speechSynthesis' in window) {
         window.speechSynthesis.cancel();
       } else {
-        await Speech.stop();
+        try {
+          await Speech.stop();
+        } catch (e) {
+          // ignore
+        }
       }
     } catch (e) {
       // ignore
     }
   },
 
-  // 2. Hardware Microphone Recording (Expo AV on mobile)
-  async requestPermissions() {
-    try {
-      if (Platform.OS !== 'web') {
-        const { status } = await Audio.requestPermissionsAsync();
-        return status === 'granted';
-      }
-      return true;
-    } catch (e) {
-      console.warn("Permission request error:", e);
-      return false;
-    }
-  },
-
-  async startRecording(onStatusUpdate) {
-    try {
-      const hasPermission = await this.requestPermissions();
-      if (!hasPermission) {
-        throw new Error("Microphone permission denied");
-      }
-
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: true,
-        playsInSilentModeIOS: true,
-        shouldDuckAndroid: true,
-        playThroughEarpieceAndroid: false
-      });
-
-      const { recording } = await Audio.Recording.createAsync(
-        Audio.RecordingOptionsPresets.HIGH_QUALITY,
-        onStatusUpdate,
-        150
-      );
-      return recording;
-    } catch (e) {
-      console.warn("Failed to start hardware recording:", e);
-      throw e;
-    }
-  },
-
-  async stopRecording(recordingInstance) {
-    if (!recordingInstance) return null;
-    try {
-      await recordingInstance.stopAndUnloadAsync();
-      const uri = recordingInstance.getURI();
-      // Reset audio mode to standard playback
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
-        playsInSilentModeIOS: true
-      });
-      return uri;
-    } catch (e) {
-      console.warn("Failed to stop recording:", e);
-      return null;
-    }
-  },
-
-  // 3. Web Speech Recognition (for browser environments)
+  // 2. Web Speech API Recognizer (Runs in browsers like Chrome on mobile or desktop)
   createSpeechRecognizer(language = 'English', onResult, onError, onEnd) {
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;

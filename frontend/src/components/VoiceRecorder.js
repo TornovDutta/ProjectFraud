@@ -1,25 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Animated, Easing, Platform, Alert, Modal, TextInput } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Animated, Easing, Platform, Modal, TextInput } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { audioService } from '../services/audio';
-import { api } from '../services/api';
 import { translations } from '../services/i18n';
 
 export default function VoiceRecorder({ language = 'English', onTranscript, isProcessing = false }) {
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordingDuration, setRecordingDuration] = useState(0);
-  const [isTranscribing, setIsTranscribing] = useState(false);
-  const [showDictateModal, setShowDictateModal] = useState(false);
-  const [dictatedText, setDictatedText] = useState("");
+  const [isListening, setIsListening] = useState(false);
+  const [showVoiceModal, setShowVoiceModal] = useState(false);
+  const [spokenText, setSpokenText] = useState("");
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
-  const recordingInstanceRef = useRef(null);
   const webRecognizerRef = useRef(null);
-  const timerIntervalRef = useRef(null);
-
   const t = translations[language] || translations.English;
 
-  // 5 animated wave bars
+  // Animated wave bars
   const waveBars = [
     useRef(new Animated.Value(6)).current,
     useRef(new Animated.Value(14)).current,
@@ -32,7 +26,7 @@ export default function VoiceRecorder({ language = 'English', onTranscript, isPr
     let pulseLoop;
     let waveLoops = [];
 
-    if (isRecording) {
+    if (isListening) {
       pulseLoop = Animated.loop(
         Animated.sequence([
           Animated.timing(pulseAnim, {
@@ -82,37 +76,15 @@ export default function VoiceRecorder({ language = 'English', onTranscript, isPr
       if (pulseLoop) pulseLoop.stop();
       waveLoops.forEach((l) => l.stop());
     };
-  }, [isRecording]);
+  }, [isListening]);
 
-  const startTimer = () => {
-    setRecordingDuration(0);
-    timerIntervalRef.current = setInterval(() => {
-      setRecordingDuration((prev) => prev + 1);
-    }, 1000);
-  };
+  const handleMicPress = () => {
+    if (isProcessing) return;
 
-  const stopTimer = () => {
-    if (timerIntervalRef.current) {
-      clearInterval(timerIntervalRef.current);
-      timerIntervalRef.current = null;
-    }
-  };
-
-  const formatSeconds = (sec) => {
-    const mins = Math.floor(sec / 60);
-    const secs = sec % 60;
-    return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-  };
-
-  const toggleRecording = async () => {
-    if (isProcessing || isTranscribing) return;
-
-    if (isRecording) {
-      // STOP RECORDING
-      setIsRecording(false);
-      stopTimer();
-
-      if (Platform.OS === 'web') {
+    if (Platform.OS === 'web') {
+      // Browser Web Speech Recognition
+      if (isListening) {
+        setIsListening(false);
         if (webRecognizerRef.current) {
           try {
             webRecognizerRef.current.stop();
@@ -121,44 +93,20 @@ export default function VoiceRecorder({ language = 'English', onTranscript, isPr
           }
         }
       } else {
-        // MOBILE (Expo Go on Android / iOS)
-        setIsTranscribing(true);
-        try {
-          const uri = await audioService.stopRecording(recordingInstanceRef.current);
-          recordingInstanceRef.current = null;
-
-          if (uri) {
-            // Upload audio to FastAPI backend
-            const transcript = await api.uploadAudio(uri, language);
-            if (transcript && onTranscript) {
-              onTranscript(transcript);
-            }
-          }
-        } catch (e) {
-          console.warn("Mobile stop recording error:", e);
-          Alert.alert("Recording Error", "Could not process audio. Please try again or use voice typing.");
-        } finally {
-          setIsTranscribing(false);
-        }
-      }
-    } else {
-      // START RECORDING
-      if (Platform.OS === 'web') {
         const recognizer = audioService.createSpeechRecognizer(
           language,
           (text) => {
-            setIsRecording(false);
-            stopTimer();
+            setIsListening(false);
             if (onTranscript) onTranscript(text);
           },
           (error) => {
-            console.warn("Speech error:", error);
-            setIsRecording(false);
-            stopTimer();
+            console.warn("Speech recognition error:", error);
+            setIsListening(false);
+            // Open dictation modal if browser speech recognition is denied
+            setShowVoiceModal(true);
           },
           () => {
-            setIsRecording(false);
-            stopTimer();
+            setIsListening(false);
           }
         );
 
@@ -166,44 +114,26 @@ export default function VoiceRecorder({ language = 'English', onTranscript, isPr
           webRecognizerRef.current = recognizer;
           try {
             recognizer.start();
-            setIsRecording(true);
-            startTimer();
+            setIsListening(true);
           } catch (e) {
-            console.warn("Could not start web recognition:", e);
+            console.warn("Could not start web speech recognizer:", e);
+            setShowVoiceModal(true);
           }
         } else {
-          // If browser speech recognition is not supported (e.g. non-Chrome)
-          setShowDictateModal(true);
-        }
-      } else {
-        // MOBILE (Expo Go on Android / iOS)
-        try {
-          const recording = await audioService.startRecording((status) => {
-            // metering updates if needed
-          });
-          recordingInstanceRef.current = recording;
-          setIsRecording(true);
-          startTimer();
-        } catch (err) {
-          console.warn("Could not start hardware recording:", err);
-          Alert.alert(
-            "Microphone Permission",
-            "Please allow microphone access in Expo Go to record your complaint.",
-            [
-              { text: "OK" },
-              { text: "Use Voice Typing", onPress: () => setShowDictateModal(true) }
-            ]
-          );
+          setShowVoiceModal(true);
         }
       }
+    } else {
+      // Mobile (Expo Go): Open native voice dictation sheet with zero native module crashes
+      setShowVoiceModal(true);
     }
   };
 
-  const handleSendDictated = () => {
-    if (dictatedText.trim()) {
-      setShowDictateModal(false);
-      const text = dictatedText.trim();
-      setDictatedText("");
+  const handleSendSpokenText = () => {
+    const text = spokenText.trim();
+    if (text) {
+      setShowVoiceModal(false);
+      setSpokenText("");
       if (onTranscript) onTranscript(text);
     }
   };
@@ -211,17 +141,15 @@ export default function VoiceRecorder({ language = 'English', onTranscript, isPr
   return (
     <View style={styles.container}>
       <Text style={styles.hintText}>
-        {isRecording
-          ? `${t.speakNow} (${formatSeconds(recordingDuration)})`
-          : isTranscribing
-          ? "Transcribing voice with AI..."
+        {isListening
+          ? t.speakNow
           : isProcessing
           ? "Processing complaint..."
           : t.tapToSpeak}
       </Text>
 
       {/* Animated Sound Wave Bar Visualization */}
-      {isRecording && (
+      {isListening && (
         <View style={styles.waveformContainer}>
           {waveBars.map((barAnim, idx) => (
             <Animated.View
@@ -236,7 +164,7 @@ export default function VoiceRecorder({ language = 'English', onTranscript, isPr
       )}
 
       <View style={styles.micWrapper}>
-        {isRecording && (
+        {isListening && (
           <Animated.View
             style={[
               styles.pulseRing,
@@ -247,62 +175,48 @@ export default function VoiceRecorder({ language = 'English', onTranscript, isPr
         <TouchableOpacity
           style={[
             styles.micButton,
-            isRecording ? styles.micButtonRecording : styles.micButtonIdle,
-            (isProcessing || isTranscribing) && styles.micButtonDisabled
+            isListening ? styles.micButtonRecording : styles.micButtonIdle,
+            isProcessing && styles.micButtonDisabled
           ]}
-          onPress={toggleRecording}
-          disabled={isProcessing || isTranscribing}
+          onPress={handleMicPress}
+          disabled={isProcessing}
           activeOpacity={0.8}
         >
           <MaterialIcons
-            name={isRecording ? "stop" : isTranscribing || isProcessing ? "hourglass-empty" : "mic"}
+            name={isListening ? "stop" : isProcessing ? "hourglass-empty" : "mic"}
             size={34}
             color="#FFFFFF"
           />
         </TouchableOpacity>
       </View>
 
-      <View style={styles.bottomRow}>
-        <Text style={styles.subtext}>
-          {isRecording
-            ? t.recording
-            : isTranscribing
-            ? "Converting speech to complaint text..."
-            : "Tap mic to speak, or use voice dictation button"}
-        </Text>
+      <Text style={styles.subtext}>
+        {isListening
+          ? t.recording
+          : "Tap mic to speak your cyber fraud complaint"}
+      </Text>
 
-        {/* Alternative Voice Dictation Button */}
-        {!isRecording && !isProcessing && !isTranscribing && (
-          <TouchableOpacity
-            style={styles.dictatePill}
-            onPress={() => setShowDictateModal(true)}
-            activeOpacity={0.8}
-          >
-            <MaterialIcons name="keyboard-voice" size={16} color="#2563EB" />
-            <Text style={styles.dictatePillText}>Voice Dictate</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* Voice Dictation Modal */}
+      {/* Voice Dictation Sheet for Mobile Phone */}
       <Modal
-        visible={showDictateModal}
+        visible={showVoiceModal}
         transparent
-        animationType="fade"
-        onRequestClose={() => setShowDictateModal(false)}
+        animationType="slide"
+        onRequestClose={() => setShowVoiceModal(false)}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <View style={styles.modalHeader}>
-              <MaterialIcons name="record-voice-over" size={22} color="#1E3A8A" />
-              <Text style={styles.modalTitle}>Speak Your Complaint</Text>
-              <TouchableOpacity onPress={() => setShowDictateModal(false)}>
+              <View style={styles.modalTitleRow}>
+                <MaterialIcons name="mic" size={22} color="#2563EB" />
+                <Text style={styles.modalTitle}>Voice Complaint Input</Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowVoiceModal(false)} style={styles.closeBtn}>
                 <MaterialIcons name="close" size={22} color="#64748B" />
               </TouchableOpacity>
             </View>
 
             <Text style={styles.modalDesc}>
-              Tap the microphone key on your mobile keyboard to dictate in Hindi, Bengali, or English:
+              Tap the microphone icon on your phone keyboard to speak in Hindi, Bengali, or English:
             </Text>
 
             <TextInput
@@ -310,27 +224,34 @@ export default function VoiceRecorder({ language = 'English', onTranscript, isPr
               multiline
               autoFocus
               numberOfLines={4}
-              placeholder="Speak or type what happened (e.g. Someone called from bank, 15000 was deducted via UPI...)"
+              placeholder={
+                language === "Hindi"
+                  ? "यहाँ बोलें या लिखें (जैसे: बैंक अधिकारी बनकर फोन आया था, 15000 रुपये कट गए...)"
+                  : language === "Bengali"
+                  ? "এখানে বলুন বা লিখুন (যেমন: ব্যাঙ্ক কর্মী সেজে ফোন করেছিল, ১৫০০০ টাকা কেটে নিয়েছে...)"
+                  : "Speak or type here (e.g. Someone called from bank, 15000 was deducted via UPI...)"
+              }
               placeholderTextColor="#94A3B8"
-              value={dictatedText}
-              onChangeText={setDictatedText}
+              value={spokenText}
+              onChangeText={setSpokenText}
             />
 
             <View style={styles.modalActions}>
               <TouchableOpacity
                 style={styles.modalCancelBtn}
-                onPress={() => setShowDictateModal(false)}
+                onPress={() => setShowVoiceModal(false)}
               >
                 <Text style={styles.modalCancelText}>Cancel</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.modalSubmitBtn, !dictatedText.trim() && styles.modalSubmitDisabled]}
-                onPress={handleSendDictated}
-                disabled={!dictatedText.trim()}
+                style={[styles.modalSubmitBtn, !spokenText.trim() && styles.modalSubmitDisabled]}
+                onPress={handleSendSpokenText}
+                disabled={!spokenText.trim()}
+                activeOpacity={0.85}
               >
                 <MaterialIcons name="send" size={16} color="#FFFFFF" />
-                <Text style={styles.modalSubmitText}>Submit Voice Note</Text>
+                <Text style={styles.modalSubmitText}>Submit Note</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -399,33 +320,13 @@ const styles = StyleSheet.create({
   micButtonDisabled: {
     backgroundColor: '#94A3B8'
   },
-  bottomRow: {
-    alignItems: 'center',
-    marginTop: 8
-  },
   subtext: {
     fontSize: 11,
     color: '#64748B',
     textAlign: 'center',
+    marginTop: 8,
     maxWidth: 320,
     lineHeight: 16
-  },
-  dictatePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#EFF6FF',
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-    borderRadius: 14,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    marginTop: 6
-  },
-  dictatePillText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#2563EB'
   },
   modalOverlay: {
     flex: 1,
@@ -452,10 +353,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8
   },
+  modalTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8
+  },
   modalTitle: {
     fontSize: 15,
     fontWeight: '700',
     color: '#0F172A'
+  },
+  closeBtn: {
+    padding: 4
   },
   modalDesc: {
     fontSize: 12,

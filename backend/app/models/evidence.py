@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, Dict, Any
 from datetime import datetime
 
@@ -15,9 +15,7 @@ class EvidenceCreate(EvidenceBase):
 class EvidenceInDB(EvidenceBase):
     id: str = Field(alias="_id")
     uploaded_at: datetime = Field(default_factory=datetime.utcnow)
-
-    class Config:
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 class EvidenceResponse(EvidenceBase):
     id: str

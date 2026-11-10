@@ -20,13 +20,21 @@ class Settings(BaseSettings):
     OFFICIAL_PORTAL_URL: str = "https://cybercrime.gov.in"
     OFFICIAL_TRACKING_URL: str = "https://www.cybercrime.gov.in/Webform/chkackstatus.aspx"
     
-    # AI & Speech Services
-    OPENAI_API_KEY: Optional[str] = None
-    GEMINI_API_KEY: Optional[str] = None
+    # AI & Speech Services (Hugging Face)
+    HF_TOKEN: Optional[str] = None
+    HF_MODEL: str = "Qwen/Qwen2.5-72B-Instruct"
+    HF_API_BASE_URL: str = "https://router.huggingface.co/v1/chat/completions"
+    HF_ASR_MODEL: Optional[str] = None
     
     # File Storage
     UPLOAD_DIR: str = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "uploads")
     
-    model_config = SettingsConfigDict(env_file=".env", extra="allow")
+    model_config = SettingsConfigDict(
+        env_file=(
+            os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), ".env"),
+            ".env",
+        ),
+        extra="allow",
+    )
 
 settings = Settings()
